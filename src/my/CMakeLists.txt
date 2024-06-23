@@ -22,5 +22,6 @@ build_lib(
           ${libpoint-to-point}
           ${libapplications}
           ${libtraffic-control}
+          ${libmobility}
         TEST_SOURCES ""
 )

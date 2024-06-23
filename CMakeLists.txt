@@ -147,6 +147,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(NS3_EXAMPLES ON)
 set(NS3_TESTS ON)
+set(NS3_EIGEN OFF)
 # ##############################################################################
 # Process options                     #
 # ##############################################################################

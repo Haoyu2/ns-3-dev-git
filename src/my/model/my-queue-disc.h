@@ -60,8 +60,8 @@
 #ifndef MY_QUEUE_DISC_H
 #define MY_QUEUE_DISC_H
 
-#include "../../network/utils/ipv4-address.h"
-#include "queue-disc.h"
+#include "ns3/ipv4-address.h"
+#include "ns3/queue-disc.h"
 
 #include "ns3/boolean.h"
 #include "ns3/data-rate.h"

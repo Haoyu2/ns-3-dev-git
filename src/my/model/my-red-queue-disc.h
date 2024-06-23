@@ -60,7 +60,7 @@
 #ifndef MY_RED_QUEUE_DISC_H
 #define MY_RED_QUEUE_DISC_H
 
-#include "queue-disc.h"
+#include "ns3/queue-disc.h"
 
 #include "ns3/boolean.h"
 #include "ns3/data-rate.h"

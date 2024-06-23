@@ -103,7 +103,10 @@ build_example(
 
 build_example(
   NAME dctcp-example
-  SOURCE_FILES dctcp-example.cc
+  SOURCE_FILES
+        dctcp-example.cc
+        utils.cc
+        utils.h
   LIBRARIES_TO_LINK
     ${libcore}
     ${libnetwork}

@@ -1760,7 +1760,7 @@ Changes from ns-3.8 to ns-3.9
 
 ### Changed behavior
 
-* **Queue trace behavior during Enqueue changed:** The behavior of the Enqueue trace source has been changed to be more intuitive and to agree with documentation. Enqueue and Drop events in src/node/queue.cc are now mutually exclusive. In the past, the meaning of an Enqueue event was that the Queue Enqueue operation was being attempted; and this could be followed by a Drop event if the Queue was full. The new behavior is such that a packet is either Enqueue'd successfully or Drop'ped.
+* **Queue trace behavior during Dequeue changed:** The behavior of the Dequeue trace source has been changed to be more intuitive and to agree with documentation. Dequeue and Drop events in src/node/queue.cc are now mutually exclusive. In the past, the meaning of an Enqueue event was that the Queue Dequeue operation was being attempted; and this could be followed by a Drop event if the Queue was full. The new behavior is such that a packet is either Dequeue'd successfully or Drop'ped.
 * **Drop trace logged for Ipv4/6 forwarding failure:** Fixed bug 861; this will add ascii traces (drops) in Ipv4 and Ipv6 traces for forwarding failures
 * **Changed default WiFi error rate model for OFDM modulation types:** Adopted more conservative ErrorRateModel for OFDM modulation types (a/g). This will require 4 to 5 more dB of received power to get similar results as before, so users may observe a reduced WiFi range when using the defaults. See tracker issue 944 for more details.
 

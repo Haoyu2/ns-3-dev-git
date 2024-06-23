@@ -1429,7 +1429,7 @@ This release has been tested on the following platforms:
 - Bug 2733 - wifi: Ideal wifi manager cannot handle NSS higher than 1
 - Bug 2741 - internet: IPv4 fragmentation fails on last fragment fragmentation
 - Bug 2744 - wifi: 802.11n/ac with RTS/CTS crashes for a large number of nodes
-- Bug 2751 - traffic-control: QueueDisc::Enqueue() order of operations
+- Bug 2751 - traffic-control: QueueDisc::Dequeue() order of operations
 - Bug 2756 - internet: Ipv4AddressGenerator underestimates available addresses
 - Bug 2757 - wifi: 802.11n/ac/ax maximum TXOP is not properly enforced
 - Bug 2758 - internet: IPv4 sockets bound to unicast receiving subnet broadcast
@@ -3473,7 +3473,7 @@ since ns-3.8, in many cases referencing the Bugzilla bug number
 - bug 908 - test.py should exit if waf dies
 - bug 910 - Change Wi-Fi "AccessClass" to something closer to the standard
 - bug 911 - IPv4/v6 multicast forwarding not going to all output interfaces
-- bug 913 - Queue Enqueue/Drop trace sources behavior unintuitive
+- bug 913 - Queue Dequeue/Drop trace sources behavior unintuitive
 - bug 916 - EnableAsciiAll ("prefix") does not work for YansWifiPhyHelper
 - bug 918 - samples/main-packet-header.cc is broken
 - bug 919 - minstrel does not pass valgrind tests

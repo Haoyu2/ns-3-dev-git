@@ -372,7 +372,7 @@ main(int argc, char* argv[])
     {
         s3r1Sinks[i]->TraceConnectWithoutContext("Rx", MakeBoundCallback(&TraceS3R1Sink, i));
     }
-    Simulator::Schedule (flowStartupWindow + convergenceTime, &IncrementCurrentSecond);
+    Simulator::Schedule (flowStartupWindow + convergenceTime, &IncrementCurrentRecordingStep);
 
     Simulator::Schedule(flowStartupWindow + convergenceTime + measurementWindow,
                         &PrintThroughput);

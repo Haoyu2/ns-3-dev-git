@@ -17,18 +17,36 @@ using namespace ns3;
 
 NS_LOG_COMPONENT_DEFINE("ScratchSimulator");
 
-int
-main(int argc, char* argv[])
+// ipccc
+/*
+ *  Paper Abstract Due:	June 15th, 2024
+ *
+ *  All Paper/Poster Submissions Due:	July 1st, 2024
+ *
+ *  ICNC
+ *  Paper submission:
+ *  July 15, 2024
+ *
+ * */
+
+
+void Set_CLI_Args(CommandLine& cmd, int argc, char* argv[])
+{
+    cmd.AddValue("Marking_Threshold", "ECN Marking Threshold at Queue", threshold);
+    cmd.AddValue("Running_Time", "ECN Marking Threshold at Queue", duration);
+    cmd.Parse(argc, argv);
+}
+
+int main(int argc, char* argv[])
 {
     NS_LOG_UNCOND("Scratch Simulator");
-
+    CommandLine cmd(__FILE__);
+    Set_CLI_Args(cmd, argc, argv);
     Init();
-
     SetDefaultConfigDCTCP();
-    SetDefaultMyRedQueueDisc();
 
     auto [ neckHelper, leafHelper] = SetPointToPointHelper();
-    auto [neckQueue, leafQueue] = SetTFMyQueueDisc();
+    auto [neckQueue, leafQueue] = SetTFMyRedQueueDisc();
 
     MyPointToPointDumbbellHelper dumbbell(
         numNodes, leafHelper,
@@ -55,16 +73,15 @@ main(int argc, char* argv[])
                                    dumbbell.GetRightIpv4Address(i),
                                    dumbbell.GetRight(i));
         auto src = dumbbell.GetLeftIpv4Address(i).Get();
-        ipToindex[src] = i;
+        ipToIndex[src] = i;
         sinks.push_back(sink);
         sink->TraceConnectWithoutContext("Rx", MakeBoundCallback(&TraceSink, i));
     }
 
-    for (int i = 1; i <= duration * 2; ++i)
-    {
-        Simulator::Schedule (Seconds(0.5) * i, &IncrementCurrentSecond);
-    }
 
+
+
+    Simulator::Schedule (recordingInterval, &IncrementCurrentRecordingStep);
     Simulator::Schedule(startTime,&CheckQueueSize, neckQ);
 
     Simulator::Schedule(stopTime,&PrintThroughput);
@@ -73,6 +90,10 @@ main(int argc, char* argv[])
 
     Simulator::Schedule(progressInterval, &PrintProgress, progressInterval);
     Simulator::Stop(stopTime + TimeStep(1));
+
+
+    ConfigStore outputConfig;
+    outputConfig.ConfigureAttributes();
     Simulator::Run();
     Simulator::Destroy();
     neckQ->GetStats().Print(throughPuts);

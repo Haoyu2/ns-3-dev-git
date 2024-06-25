@@ -1,5 +1,5 @@
 set(source_files
-        my-main.cc
+        my-dumbbell-dctcp-main.cc
         my-config.cc
 )
 
@@ -14,6 +14,7 @@ build_lib_example(
             ${libpoint-to-point}
             ${libapplications}
             ${libtraffic-control}
+            ${libconfig-store}
   )
 
 build_lib_example(
@@ -27,4 +28,5 @@ build_lib_example(
         ${libpoint-to-point}
         ${libapplications}
         ${libtraffic-control}
+        ${libconfig-store}
 )

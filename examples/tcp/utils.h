@@ -86,7 +86,7 @@ void NS3DefaultConfig();
 // Simulation progress
 void PrintProgress(Time interval);
 
-void IncrementCurrentSecond();
+void IncrementCurrentRecordingStep();
 
 void PrintThroughput();
 

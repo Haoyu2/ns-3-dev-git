@@ -68,7 +68,7 @@ void NS3DefaultConfig()
 }
 
 void
-IncrementCurrentSecond()
+IncrementCurrentRecordingStep()
 {
     for (std::size_t i = 0; i < 10; i++)
     {

@@ -345,7 +345,7 @@ MyRedQueueDisc::DoEnqueue(Ptr<QueueDiscItem> item)
 
     uint32_t nQueued = GetNPackets();
     if (nQueued>= m_maxTh)  {
-        Mark(item, "Bigger than max threshold");
+        Mark(item, "Bigger than max threshold DCTCP Queue");
     }
 
     bool retval1 = GetInternalQueue(0)->Enqueue(item);

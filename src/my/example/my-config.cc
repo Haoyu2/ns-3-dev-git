@@ -4,13 +4,43 @@
 
 #include "my-config.h"
 
+
+
 #include <iomanip>
 #include <iostream>
 
 using namespace ns3;
 
-void Init(){
 
+void PrintHeader(std::ofstream &output)
+{
+    output <<  "     " ;
+    for (Time t = recordingInterval; t < stopTime; t+=recordingInterval)
+    {
+
+        output << " " << std::setw(6) <<  std::fixed << std::showpoint
+                    << std::setprecision(1) << t.GetSeconds() << "s";
+
+    }
+    output << std::endl;
+}
+
+void Init()
+{
+    stopTime = Seconds(duration);
+    data_dir = data_dir + "/" +  std::to_string(threshold)+"duration_" + std::to_string(duration) + "s";
+    CreateFolderIfNotExists(data_dir.c_str());
+
+    throughPuts.open(data_dir + "/through_puts.dat");
+    PrintHeader(throughPuts);
+    queueLength.open(data_dir + "/queue_length.dat");
+    PrintHeader(queueLength);
+
+
+    // Output config store to txt format
+    Config::SetDefault("ns3::ConfigStore::Filename", StringValue(data_dir +  "/output-attributes.txt"));
+    Config::SetDefault("ns3::ConfigStore::FileFormat", StringValue("RawText"));
+    Config::SetDefault("ns3::ConfigStore::Mode", StringValue("Save"));
 }
 
 std::tuple<PointToPointHelper, PointToPointHelper> SetPointToPointHelper()
@@ -166,28 +196,31 @@ Ptr<PacketSink> SetupFlow(int iFlow, Ptr<Node> leftNode, Ipv4Address rightIP, Pt
 }
 
 void
-IncrementCurrentSecond()
+IncrementCurrentRecordingStep()
 {
-    currentSecond++;
+    recordingStep++;
+    recordingQueueSizeStep = 0;
+    if (recordingInterval*recordingStep <= stopTime) {
+        Simulator::Schedule (recordingInterval, &IncrementCurrentRecordingStep);
+    }
 }
 
 void TraceSink(std::size_t index, Ptr<const Packet> p, const Address& a)
 {
-    sinkBytes[currentSecond][index] += p->GetSize();
+    sinkBytes[recordingStep][index] += p->GetSize();
 }
 void MarkEvent(Ptr<const QueueDiscItem> item, const char* reason)
 {
     auto p = DynamicCast<const Ipv4QueueDiscItem, const QueueDiscItem>(item);
     auto ipMark = p->GetHeader().GetSource().Get();
-    auto i = ipToindex[ipMark];
-    markBytes[currentSecond][i]++;
-
-
+    auto i = ipToIndex[ipMark];
+    markBytes[recordingStep][i]++;
 }
 
 
 void PrintThroughput()
 {
+    throughPuts << "   # how many M-bits received for each node" <<std::endl;
     for (std::size_t j = 0; j < numNodes; j++)
     {
         throughPuts << std::setw(3) << j << " " ;
@@ -212,14 +245,15 @@ void PrintThroughput()
         }
         throughPuts << "  "<< std::setw(6)
                     <<  std::fixed << std::showpoint << std::setprecision(1)
-                    << (total * 8) / 1e6 * 2;
+                    << (total * 8) / 1e6 ;
     }
 }
 
 void PrintMark()
 {
     auto data = markBytes;
-    std::cout << "\n\n\n";
+    std::cout << "\n\n" <<std::endl;
+    std::cout << "  # how many packets get marked for each node" << std::endl;
     for (std::size_t j = 0; j < numNodes; j++)
     {
         throughPuts << std::setw(3) << j << " " ;
@@ -228,7 +262,7 @@ void PrintMark()
 
             throughPuts << "  "<< std::setw(6)
                         <<  std::fixed << std::showpoint << std::setprecision(1)
-                        << (data[i][j] * 8) / 1e6;
+                        << data[i][j]  ;
 
         }
         throughPuts << std::endl;
@@ -244,19 +278,27 @@ void PrintMark()
         }
         throughPuts << "  "<< std::setw(6)
                     <<  std::fixed << std::showpoint << std::setprecision(1)
-                    << (total * 8) / 1e6 * 2;
+                    << total;
     }
 }
 
 void PrintQueueSize()
 {
-    throughPuts << "\n\n";
-    for (uint32_t i = 0; i < queueSize.size(); ++i)
+    auto data = queueSize;
+    std::cout << "\n\n\n";
+    for (std::size_t j = 0; j < recordQueueTotal; j++)
     {
-        throughPuts << std::setw(6)
-                    <<  std::fixed << std::showpoint << std::setprecision(1)<< queueSize.at(i) << " ";
+        queueLength << std::setw(3) << j << " " ;
+        for (std::size_t i = 0; i < data.size(); ++i)
+        {
+
+            queueLength << "  "<< std::setw(6)
+                        <<  std::fixed << std::showpoint << std::setprecision(1)
+                        << data[i][j]  ;
+
+        }
+        queueLength << std::endl;
     }
-    throughPuts << "\n\n" << std::endl;
 }
 
 void CheckQueueSize(Ptr<QueueDisc> queue)
@@ -264,9 +306,8 @@ void CheckQueueSize(Ptr<QueueDisc> queue)
 
     // 1500 byte packets
     uint32_t qSize = queue->GetNPackets();
-    queueSize.push_back(qSize);
-    // check queue size every 1/100 of a second
-    Simulator::Schedule(MilliSeconds(50), &CheckQueueSize, queue);
+    queueSize[recordingStep][recordingQueueSizeStep++] = qSize;
+    Simulator::Schedule(recordQueueSizeInterval, &CheckQueueSize, queue);
 }
 
 void PrintProgress(Time interval)

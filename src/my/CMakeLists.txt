@@ -2,12 +2,16 @@ set(source_files
         model/my-queue-disc.cc
         model/my-point-to-point-dumbbell.cc
         model/my-red-queue-disc.cc
+
+        helper/my-utils.cc
 )
 
 set(header_files
         model/my-queue-disc.h
         model/my-red-queue-disc.h
         model/my-point-to-point-dumbbell.h
+
+        helper/my-utils.h
 )
 
 

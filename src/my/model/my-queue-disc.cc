@@ -114,13 +114,14 @@ QueueCounter::GetCounter()
 std::tuple<uint32_t, uint32_t, uint32_t, uint32_t>
 QueueCounter::GetState()
 {
-    return {total, categories,mean, current};
+    return {total, categories, mean, current};
 }
 bool
-QueueCounter::IncrementAndMark(uint32_t ipIn)
+QueueCounter::IncrementAndMark(uint32_t ipIn, uint32_t n, double th)
 {
 
-    return counter[ipIn] > mean;
+//    return counter[ipIn] > mean * th / n ; //updated
+    return counter[ipIn] > mean ; //update1
 }
 
 
@@ -138,7 +139,7 @@ MyQueueDisc::GetTypeId()
             .AddConstructor<MyQueueDisc>()
             .AddAttribute("QueueCounterTotal",
                           "QueueCounter total size",
-                          UintegerValue(100),
+                          UintegerValue(2000),
                           MakeUintegerAccessor(&MyQueueDisc::m_queueCounterTotal),
                           MakeUintegerChecker<uint32_t>())
             .AddAttribute("MeanPktSize",
@@ -356,6 +357,15 @@ MyQueueDisc::SetFengAdaptiveA(double a)
     }
 }
 
+
+QueueCounter
+MyQueueDisc::GetQueueCounter()
+{
+    NS_LOG_FUNCTION(this);
+    return m_queueCounter;
+}
+
+
 double
 MyQueueDisc::GetFengAdaptiveA()
 {
@@ -408,8 +418,8 @@ MyQueueDisc::DoEnqueue(Ptr<QueueDiscItem> item)
     auto ipIn = ipv4QItem->GetHeader().GetSource();
     uint32_t nQueued = GetNPackets();
 
-    if (m_queueCounter.IncrementAndMark(ipIn.Get()) && nQueued >= m_maxTh )  {
-        Mark(item, "Bigger than max threshold");
+    if (m_queueCounter.IncrementAndMark(ipIn.Get(), nQueued, m_maxTh) && nQueued >= m_maxTh )  {
+        Mark(item, "Bigger than max threshold, my queue");
     }
 
     bool retval1 = GetInternalQueue(0)->Enqueue(item);

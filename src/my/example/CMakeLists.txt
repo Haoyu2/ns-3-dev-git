@@ -1,6 +1,7 @@
 set(source_files
         my-dumbbell-dctcp-main.cc
         my-config.cc
+        my-config-queue.cc
 )
 
 build_lib_example(

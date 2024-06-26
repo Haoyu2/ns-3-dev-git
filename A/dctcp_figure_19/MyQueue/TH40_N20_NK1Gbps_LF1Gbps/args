@@ -1,0 +1,13 @@
+/mnt/c/Users/haoyu/CLionProjects/ns-3-dev-git/build/src/my/example/ns3-dev-my-main-example-debug
+--AQ=MyQueue
+--MarkingThreshold=40
+--NumberNodes=20
+--DataRateNeck=1Gbps
+--DataRateLeaf=1Gbps
+--DelayNeck=50us
+--DelayLeaf=25us
+--FlowStartupWindow=0s
+--StopTime=1.7s
+--StartRecordingQS=1.5s
+--StopRecordingQS=1.7s
+--IntervalRecordingQS=1ms

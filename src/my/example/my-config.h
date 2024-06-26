@@ -20,55 +20,80 @@
 #include "ns3/data-rate.h"
 #include "ns3/my-utils.h"
 #include "ns3/config-store.h"
+#include "ns3/my-queue-disc.h"
 #include <cstdint>
 
 using namespace ns3;
 
+#define REM "REM"
+#define MYQ "MyQueue"
+#define RED "RED"
+
+typedef std::tuple<TrafficControlHelper, TrafficControlHelper> (*SetupQueueFunction)(void); // function pointer type
+inline std::string  activeQueue = REM ;
+inline std::map<std::string, SetupQueueFunction> supportQueue;
 /*
  *  Testing Node and Queue Marking Threshold
  *
  * */
 
-inline uint32_t numNodes = 20;
-inline uint32_t threshold = 10;
+inline uint32_t numNodes = 2;
+inline uint32_t threshold = 40;
 /*
  *  Testing Time
  * */
+// if flowStartupWindow == 0 every flow starts at same time
+// else flow starts gradually within this window
 inline Time flowStartupWindow = Seconds(1);
-inline Time convergenceTime = Seconds(3);
-inline Time measurementWindow = Seconds(3);
-inline Time startTime = Seconds(0);
-inline int duration = 3;
-inline Time stopTime = Seconds(duration);
+inline Time stopTime = Seconds(3);
 inline Time progressInterval = MilliSeconds(100);
+inline Time startRecordingTP = Seconds(0);
+inline Time stopRecordingTP = stopTime;
+inline Time intervalRecordingTP = Seconds(0.5);
+
+// these row length has to be the same
+inline std::vector<std::vector<uint64_t>> sinkBytes;
+inline std::vector<std::vector<uint64_t>> markBytes;
+
+
+inline Time startRecordingQS = Seconds(0);
+inline Time stopRecordingQS = stopTime;
+inline Time intervalRecordingQS = MilliSeconds(10);
+inline std::vector<uint32_t> recordsQS;
+inline std::vector<std::tuple<uint32_t, uint32_t, uint32_t, uint32_t>> queueCounterStats;
+
+inline std::string dataRateNeck = "10Gbps";
+inline std::string dataRateLeaf = "1Gbps";
+inline std::string delayNeck = "10us";
+inline std::string delayLeaf = "10us";
 
 /*
  *  Testing Results Directory
  *
  * */
 // Results folder
-inline auto  data_dir = RESULT_DIR + "/dctcp_queue_dumbbell";
+inline auto  data_dir = RESULT_DIR + "/dctcp_figure_19";
 
-inline std::ofstream throughPuts; // throughput record
-inline std::ofstream queueLength; // queueLength record
+inline int widthRecordTimeTP = 4;
+inline int widthRecordTimeQS = 6;
+inline std::ofstream throughPutStream; // throughput record
+inline int widthThroughPuts = 8;
+inline std::ofstream queueLengthStream; // queueLength record
+inline int widthQueueSize = 8;
 
-inline int recordingStep = 0;     //
-inline Time recordingInterval = Seconds(0.5);     //
-inline Time recordQueueSizeInterval = MilliSeconds(20);
-inline uint64_t recordQueueTotal = (recordingInterval / recordQueueSizeInterval).GetInt();
-inline std::vector<std::vector<uint64_t>> sinkBytes(duration*2+2, std::vector<uint64_t>(numNodes));
-inline std::vector<std::vector<uint64_t>> markBytes(duration*2+2, std::vector<uint64_t>(numNodes));
+inline std::vector<std::string> throughPutString;
+inline std::vector<std::string> queueLengthString;
 
-inline int recordingQueueSizeStep = 0;
-inline std::vector<std::vector<uint64_t>> queueSize(duration*2+2, std::vector<uint64_t>(recordQueueTotal));
+
+
 inline std::map<uint32_t, uint32_t> ipToIndex;
 
-
-/*
+    /*
  *  Setting Functions
  *
  * */
-void Init();
+void Set_CLI_Args(CommandLine& cmd, int argc, char* argv[]);
+void Init(int argc, char* argv[]);
 std::tuple<PointToPointHelper, PointToPointHelper> SetPointToPointHelper();
 std::tuple<TrafficControlHelper, TrafficControlHelper> SetTFMyRedQueueDisc();
 void SetDefaultConfigDCTCP();
@@ -81,6 +106,11 @@ void PrintThroughput();
 void PrintMark();
 void PrintProgress(Time interval);
 void CheckQueueSize(Ptr<QueueDisc> queue);
+void CheckThroughputAndMarking();
 void PrintQueueSize();
 std::tuple<TrafficControlHelper, TrafficControlHelper> SetTFMyQueueDisc();
+void InitVector(std::vector<uint64_t> v);
+void DumpQueueSize(std::ofstream &output);
+void DumpThroughput(std::ofstream &output, std::vector<std::vector<uint64_t>> data, bool );
+void DumpVectorOfVector(std::ofstream &output, std::vector<std::vector<uint64_t>> data);
 #endif // NS3_CONFIG_H

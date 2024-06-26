@@ -30,23 +30,18 @@ NS_LOG_COMPONENT_DEFINE("ScratchSimulator");
  * */
 
 
-void Set_CLI_Args(CommandLine& cmd, int argc, char* argv[])
-{
-    cmd.AddValue("Marking_Threshold", "ECN Marking Threshold at Queue", threshold);
-    cmd.AddValue("Running_Time", "ECN Marking Threshold at Queue", duration);
-    cmd.Parse(argc, argv);
-}
+
 
 int main(int argc, char* argv[])
 {
     NS_LOG_UNCOND("Scratch Simulator");
     CommandLine cmd(__FILE__);
     Set_CLI_Args(cmd, argc, argv);
-    Init();
+    Init(argc, argv);
     SetDefaultConfigDCTCP();
 
     auto [ neckHelper, leafHelper] = SetPointToPointHelper();
-    auto [neckQueue, leafQueue] = SetTFMyRedQueueDisc();
+    auto [neckQueue, leafQueue] = supportQueue[activeQueue]();
 
     MyPointToPointDumbbellHelper dumbbell(
         numNodes, leafHelper,
@@ -78,25 +73,22 @@ int main(int argc, char* argv[])
         sink->TraceConnectWithoutContext("Rx", MakeBoundCallback(&TraceSink, i));
     }
 
-
-
-
-    Simulator::Schedule (recordingInterval, &IncrementCurrentRecordingStep);
-    Simulator::Schedule(startTime,&CheckQueueSize, neckQ);
-
-    Simulator::Schedule(stopTime,&PrintThroughput);
-    Simulator::Schedule(stopTime,&PrintMark);
-    Simulator::Schedule(stopTime,&PrintQueueSize);
+    // records queue sizes
+    Simulator::Schedule(startRecordingQS,&CheckQueueSize, neckQ);
+    // records throughput
+    Simulator::Schedule(startRecordingTP + intervalRecordingTP,&CheckThroughputAndMarking);
 
     Simulator::Schedule(progressInterval, &PrintProgress, progressInterval);
     Simulator::Stop(stopTime + TimeStep(1));
 
-
-    ConfigStore outputConfig;
-    outputConfig.ConfigureAttributes();
     Simulator::Run();
     Simulator::Destroy();
-    neckQ->GetStats().Print(throughPuts);
+    DumpQueueSize(queueLengthStream);
+    DumpThroughput(throughPutStream, sinkBytes, true);
+    DumpThroughput(throughPutStream, markBytes, false);
+    neckQ->GetStats().Print(throughPutStream);
+    DumpVectorOfVector(throughPutStream, sinkBytes);
+    DumpVectorOfVector(throughPutStream, markBytes);
 
     return 0;
 }

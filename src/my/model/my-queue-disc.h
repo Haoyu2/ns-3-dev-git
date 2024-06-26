@@ -79,7 +79,7 @@ class QueueCounter
   public:
     QueueCounter();
     QueueCounter(uint32_t total);
-    bool IncrementAndMark(uint32_t src);
+    bool IncrementAndMark(uint32_t ipIn, uint32_t n, double th);
     void Dequeue(uint32_t src);
     void SetTotal(uint32_t t);
     std::map<uint32_t, uint32_t> GetCounter();
@@ -177,6 +177,8 @@ class MyQueueDisc : public QueueDisc
      * \param a The value of alpha to adapt m_curMaxP in Feng's Adaptive RED.
      */
     void SetFengAdaptiveA(double a);
+
+    QueueCounter GetQueueCounter();
 
     /**
      * \brief Get the alpha value to adapt m_curMaxP in Feng's Adaptive RED.

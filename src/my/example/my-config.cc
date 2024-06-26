@@ -11,47 +11,136 @@
 
 using namespace ns3;
 
-
-void PrintHeader(std::ofstream &output)
+void PrintTPHeader(std::ofstream &output)
 {
-    output <<  "     " ;
-    for (Time t = recordingInterval; t < stopTime; t+=recordingInterval)
+    output << "Throughput are converted to MB/s\n"
+              "The last measure window may not have a full measurement window\n"
+              "Marked packets are number\n";
+    output << std::setw(3) << " ";
+    Time time1 = startRecordingTP + intervalRecordingTP;
+    for (; time1 <= stopRecordingTP + intervalRecordingTP;)
     {
-
-        output << " " << std::setw(6) <<  std::fixed << std::showpoint
-                    << std::setprecision(1) << t.GetSeconds() << "s";
-
+        output << std::setfill(' ') << std::setw(widthThroughPuts)
+                  << std::fixed << std::showpoint
+                  << std::setprecision(1)
+                  <<  (time1 > stopRecordingTP ? stopRecordingTP : time1)  .GetSeconds() << "s ";
+        time1 += intervalRecordingTP;
     }
     output << std::endl;
 }
 
-void Init()
+void PrintQSHeader(std::ofstream &output)
 {
-    stopTime = Seconds(duration);
-    data_dir = data_dir + "/" +  std::to_string(threshold)+"duration_" + std::to_string(duration) + "s";
+    output << std::setw(widthRecordTimeQS) <<  " ";
+
+    output << std::setw(widthQueueSize) << "(nPackets) ";
+
+    output << std::endl;
+}
+
+/*
+ *
+ *
+ --AQ=REM
+ --MarkingThreshold=40
+ --NumberNodes=2
+ --DataRateNeck=10Gbps
+ --DataRateLeaf=10Gbps
+ --DelayNeck=50us
+ --DelayLeaf=25us
+ --FlowStartupWindow=0s
+ --StopTime=3s
+ --StartRecordingQS=1.55s
+ --StopRecordingQS=1.56s
+ --IntervalRecordingQS=10ms
+
+ *
+ *
+ * */
+
+void Set_CLI_Args(CommandLine& cmd, int argc, char* argv[])
+{
+    supportQueue[REM] = SetTFMyRedQueueDisc;
+    supportQueue[MYQ] = SetTFMyQueueDisc;
+
+    cmd.AddValue("AQ", "Active queue algorithm at bottle neck", activeQueue);
+    cmd.AddValue("MarkingThreshold", "ECN Marking Threshold at Queue", threshold);
+    cmd.AddValue("NumberNodes", "Total number of node for flow", numNodes);
+
+    cmd.AddValue("DataRateNeck", "Data rate at bottle neck link", dataRateNeck);
+    cmd.AddValue("DataRateLeaf", "Data rate at leaf link", dataRateLeaf);
+    cmd.AddValue("DelayNeck", "Link delay at bottle neck", delayNeck);
+    cmd.AddValue("DelayLeaf", "Link delay at leaf", delayLeaf);
+
+    cmd.AddValue("FlowStartupWindow", "if 0 every flow starts at same time", flowStartupWindow);
+    cmd.AddValue("StopTime", "The stop time of simulation", stopTime);
+    cmd.AddValue("ProgressInterval", "Print progress every default 100ms", progressInterval);
+
+    cmd.AddValue("StartRecordingTP", "Starting time for recording throughput", startRecordingTP);
+    cmd.AddValue("StopRecordingTP", "Stopping time for recording throughput", stopRecordingTP);
+    cmd.AddValue("IntervalRecordingTP", "Interval time for recording throughput default 0.5s", intervalRecordingTP);
+
+    cmd.AddValue("StartRecordingQS", "Starting time for recording throughput", startRecordingQS);
+    cmd.AddValue("StopRecordingQS", "Stopping time for recording throughput", stopRecordingQS);
+    cmd.AddValue("IntervalRecordingQS", "Interval time for recording throughput default 10ms", intervalRecordingQS);
+    cmd.Parse(argc, argv);
+
+    stopRecordingTP = stopRecordingTP > stopTime ? stopTime : stopRecordingTP;
+    if (stopTime < flowStartupWindow
+        || stopTime < startRecordingTP
+        || stopTime < stopRecordingTP
+        || stopTime < startRecordingQS
+        || stopTime < stopRecordingQS
+        )
+    {
+        NS_FATAL_ERROR ("Stop time is smaller than flowStartupWindow/startRecordingTP/stopRecordingTP");
+    }
+
+    if (supportQueue.find("activeQueue") != supportQueue.end())
+    {
+        NS_FATAL_ERROR ("Has not supported this active queue algorithm");
+    }
+}
+
+auto AppendVector(int n)
+{
+    std::vector<uint64_t> a(n);
+    return a;
+}
+
+void Init(int argc, char* argv[])
+{
+
+    sinkBytes.push_back(AppendVector(numNodes));
+    markBytes.push_back(AppendVector(numNodes));
+
+    data_dir = data_dir + "/" + activeQueue + "/UPDATED1-2000-TH" +  std::to_string(threshold)
+               + "_N" + std::to_string(numNodes)
+               + "_NK" + dataRateNeck + "_LF" + dataRateLeaf;
     CreateFolderIfNotExists(data_dir.c_str());
 
-    throughPuts.open(data_dir + "/through_puts.dat");
-    PrintHeader(throughPuts);
-    queueLength.open(data_dir + "/queue_length.dat");
-    PrintHeader(queueLength);
+    std::ofstream argStream(data_dir + "/args");
+    for (int i = 0; i < argc; ++i)
+    {
+        argStream << argv[i] << "\n";
+    }
+    argStream.close();
+    throughPutStream.open(data_dir + "/through_puts.dat");
+    PrintTPHeader(throughPutStream);
+    queueLengthStream.open(data_dir + "/queue_length.dat");
+    PrintQSHeader(queueLengthStream);
 
-
-    // Output config store to txt format
-    Config::SetDefault("ns3::ConfigStore::Filename", StringValue(data_dir +  "/output-attributes.txt"));
-    Config::SetDefault("ns3::ConfigStore::FileFormat", StringValue("RawText"));
-    Config::SetDefault("ns3::ConfigStore::Mode", StringValue("Save"));
 }
 
 std::tuple<PointToPointHelper, PointToPointHelper> SetPointToPointHelper()
 {
     PointToPointHelper leafHelper;
-    leafHelper.SetDeviceAttribute("DataRate", StringValue("1Gbps"));
-    leafHelper.SetChannelAttribute("Delay", StringValue("10us"));
+    leafHelper.SetDeviceAttribute("DataRate", StringValue(dataRateLeaf));
+    leafHelper.SetChannelAttribute("Delay", StringValue(delayLeaf));
 
     PointToPointHelper neckHelper;
-    neckHelper.SetDeviceAttribute("DataRate", StringValue("10Gbps"));
-    neckHelper.SetChannelAttribute("Delay", StringValue("10us"));
+    neckHelper.SetDeviceAttribute("DataRate", StringValue(dataRateNeck));
+    neckHelper.SetChannelAttribute("Delay", StringValue(delayNeck));
 
     return { neckHelper, leafHelper};
 }
@@ -65,106 +154,6 @@ void SetDefaultConfigDCTCP()
     GlobalValue::Bind("ChecksumEnabled", BooleanValue(false));
 }
 
-void SetDefaultMyRedQueueDisc()
-{
-    // Set default parameters for RED queue disc
-    Config::SetDefault("ns3::MyRedQueueDisc::UseEcn", BooleanValue(true));
-    // ARED may be used but the queueing delays will increase; it is disabled
-    // here because the SIGCOMM paper did not mention it
-    // Config::SetDefault ("ns3::RedQueueDisc::ARED", BooleanValue (true));
-    // Config::SetDefault ("ns3::RedQueueDisc::Gentle", BooleanValue (true));
-    Config::SetDefault("ns3::MyRedQueueDisc::UseHardDrop", BooleanValue(false));
-    Config::SetDefault("ns3::MyRedQueueDisc::MeanPktSize", UintegerValue(1500));
-    // Triumph and Scorpion switches used in DCTCP Paper have 4 MB of buffer
-    // If every packet is 1500 bytes, 2666 packets can be stored in 4 MB
-    Config::SetDefault("ns3::MyRedQueueDisc::MaxSize", QueueSizeValue(QueueSize("2666p")));
-    // DCTCP tracks instantaneous queue length only; so set QW = 1
-    Config::SetDefault("ns3::MyRedQueueDisc::QW", DoubleValue(1));
-    Config::SetDefault("ns3::MyRedQueueDisc::MinTh", DoubleValue(20));
-    Config::SetDefault("ns3::MyRedQueueDisc::MaxTh", DoubleValue(60));
-}
-
-
-// traffic control layer
-std::tuple<TrafficControlHelper, TrafficControlHelper> SetTFMyRedQueueDisc()
-{
-    SetDefaultMyRedQueueDisc();
-    TrafficControlHelper neckQueue;
-    neckQueue.SetRootQueueDisc("ns3::MyRedQueueDisc",
-                               "LinkBandwidth",
-                               StringValue("10Gbps"),
-                               "LinkDelay",
-                               StringValue("10us"),
-                               "MinTh",
-                               DoubleValue(threshold),
-                               "MaxTh",
-                               DoubleValue(threshold));
-
-    TrafficControlHelper leafQueue;
-    leafQueue.SetRootQueueDisc("ns3::MyRedQueueDisc",
-                             "LinkBandwidth",
-                             StringValue("1Gbps"),
-                             "LinkDelay",
-                             StringValue("10us"),
-                             "MinTh",
-                             DoubleValue(threshold),
-                             "MaxTh",
-                             DoubleValue(threshold));
-
-    return {neckQueue, leafQueue};
-}
-
-
-
-void SetDefaultMyQueueDisc()
-{
-    // Set default parameters for RED queue disc
-    Config::SetDefault("ns3::MyQueueDisc::UseEcn", BooleanValue(true));
-    // ARED may be used but the queueing delays will increase; it is disabled
-    // here because the SIGCOMM paper did not mention it
-    // Config::SetDefault ("ns3::RedQueueDisc::ARED", BooleanValue (true));
-    // Config::SetDefault ("ns3::RedQueueDisc::Gentle", BooleanValue (true));
-    Config::SetDefault("ns3::MyQueueDisc::UseHardDrop", BooleanValue(false));
-    Config::SetDefault("ns3::MyQueueDisc::MeanPktSize", UintegerValue(1500));
-    // Triumph and Scorpion switches used in DCTCP Paper have 4 MB of buffer
-    // If every packet is 1500 bytes, 2666 packets can be stored in 4 MB
-    Config::SetDefault("ns3::MyQueueDisc::MaxSize", QueueSizeValue(QueueSize("2666p")));
-    // DCTCP tracks instantaneous queue length only; so set QW = 1
-    Config::SetDefault("ns3::MyQueueDisc::QW", DoubleValue(1));
-    Config::SetDefault("ns3::MyQueueDisc::MinTh", DoubleValue(20));
-    Config::SetDefault("ns3::MyQueueDisc::MaxTh", DoubleValue(60));
-}
-
-
-// traffic control layer
-std::tuple<TrafficControlHelper, TrafficControlHelper> SetTFMyQueueDisc()
-{
-    SetDefaultMyQueueDisc();
-    TrafficControlHelper neckQueue;
-    neckQueue.SetRootQueueDisc("ns3::MyQueueDisc",
-                               "LinkBandwidth",
-                               StringValue("10Gbps"),
-                               "LinkDelay",
-                               StringValue("10us"),
-                               "MinTh",
-                               DoubleValue(threshold),
-                               "MaxTh",
-                               DoubleValue(threshold));
-
-    TrafficControlHelper leafQueue;
-    leafQueue.SetRootQueueDisc("ns3::MyQueueDisc",
-                               "LinkBandwidth",
-                               StringValue("1Gbps"),
-                               "LinkDelay",
-                               StringValue("10us"),
-                               "MinTh",
-                               DoubleValue(threshold),
-                               "MaxTh",
-                               DoubleValue(threshold));
-
-    return {neckQueue, leafQueue};
-}
-
 Ptr<PacketSink> SetupFlow(int iFlow, Ptr<Node> leftNode, Ipv4Address rightIP, Ptr<Node> rightNode)
 {
     static uint16_t port = 5000;
@@ -174,7 +163,7 @@ Ptr<PacketSink> SetupFlow(int iFlow, Ptr<Node> leftNode, Ipv4Address rightIP, Pt
 
     ApplicationContainer sinkApp = sinkHelper.Install(rightNode);
     Ptr<PacketSink> packetSink = sinkApp.Get(0)->GetObject<PacketSink>();
-    sinkApp.Start(startTime);
+    sinkApp.Start(Seconds(0));
     sinkApp.Stop(stopTime);
 
     OnOffHelper clientHelper1("ns3::TcpSocketFactory", Address());
@@ -182,132 +171,139 @@ Ptr<PacketSink> SetupFlow(int iFlow, Ptr<Node> leftNode, Ipv4Address rightIP, Pt
                                StringValue("ns3::ConstantRandomVariable[Constant=1]"));
     clientHelper1.SetAttribute("OffTime",
                                StringValue("ns3::ConstantRandomVariable[Constant=0]"));
-    clientHelper1.SetAttribute("DataRate", DataRateValue(DataRate("1Gbps")));
+    clientHelper1.SetAttribute("DataRate", DataRateValue(DataRate(dataRateLeaf)));
     clientHelper1.SetAttribute("PacketSize", UintegerValue(1000));
 
     ApplicationContainer clientApps1;
     AddressValue remoteAddress(InetSocketAddress(rightIP, port));
     clientHelper1.SetAttribute("Remote", remoteAddress);
     clientApps1.Add(clientHelper1.Install(leftNode));
-    clientApps1.Start(iFlow * flowStartupWindow / numNodes + startTime);
+    clientApps1.Start(iFlow * flowStartupWindow / numNodes );
     clientApps1.Stop(stopTime);
 
     return packetSink;
 }
 
-void
-IncrementCurrentRecordingStep()
-{
-    recordingStep++;
-    recordingQueueSizeStep = 0;
-    if (recordingInterval*recordingStep <= stopTime) {
-        Simulator::Schedule (recordingInterval, &IncrementCurrentRecordingStep);
-    }
-}
+
 
 void TraceSink(std::size_t index, Ptr<const Packet> p, const Address& a)
 {
-    sinkBytes[recordingStep][index] += p->GetSize();
+    sinkBytes.back()[index] += p->GetSize();
 }
 void MarkEvent(Ptr<const QueueDiscItem> item, const char* reason)
 {
     auto p = DynamicCast<const Ipv4QueueDiscItem, const QueueDiscItem>(item);
     auto ipMark = p->GetHeader().GetSource().Get();
     auto i = ipToIndex[ipMark];
-    markBytes[recordingStep][i]++;
+    markBytes.back()[i]++;
 }
 
 
-void PrintThroughput()
+void DumpQueueSize(std::ofstream &output)
 {
-    throughPuts << "   # how many M-bits received for each node" <<std::endl;
-    for (std::size_t j = 0; j < numNodes; j++)
+    Time time1= startRecordingQS;
+    for (int i = 0; i < recordsQS.size();i++)
     {
-        throughPuts << std::setw(3) << j << " " ;
-        for (std::size_t i = 0; i < sinkBytes.size(); ++i)
+        output << std::setw(widthRecordTimeQS) << std::fixed << std::setprecision(3)
+                          << time1.GetSeconds () << "s "
+                          << std::setw(widthQueueSize) <<  recordsQS[i] ;
+
+        if (activeQueue == MYQ)
         {
-
-            throughPuts << "  "<< std::setw(6)
-                        <<  std::fixed << std::showpoint << std::setprecision(1)
-                        << (sinkBytes[i][j] * 8) / 1e6;
-
+            auto [total, categories, mean, current] = queueCounterStats[i];
+            output << " total " << total << " cat" << categories << " mean" << mean << " current" << current;
         }
-        throughPuts << std::endl;
+        output << "\n";
+        time1 += intervalRecordingQS;
     }
-
-    throughPuts << std::setw(3) << numNodes  << " " ;
-    for (std::size_t i = 0; i < sinkBytes.size(); ++i)
-    {
-        uint64_t total = 0;
-        for (std::size_t j = 0; j < numNodes; ++j)
-        {
-            total += sinkBytes[i][j];
-        }
-        throughPuts << "  "<< std::setw(6)
-                    <<  std::fixed << std::showpoint << std::setprecision(1)
-                    << (total * 8) / 1e6 ;
-    }
-}
-
-void PrintMark()
-{
-    auto data = markBytes;
-    std::cout << "\n\n" <<std::endl;
-    std::cout << "  # how many packets get marked for each node" << std::endl;
-    for (std::size_t j = 0; j < numNodes; j++)
-    {
-        throughPuts << std::setw(3) << j << " " ;
-        for (std::size_t i = 0; i < data.size(); ++i)
-        {
-
-            throughPuts << "  "<< std::setw(6)
-                        <<  std::fixed << std::showpoint << std::setprecision(1)
-                        << data[i][j]  ;
-
-        }
-        throughPuts << std::endl;
-    }
-
-    throughPuts << std::setw(3) << numNodes  << " " ;
-    for (std::size_t i = 0; i < data.size(); ++i)
-    {
-        uint64_t total = 0;
-        for (std::size_t j = 0; j < numNodes; ++j)
-        {
-            total += data[i][j];
-        }
-        throughPuts << "  "<< std::setw(6)
-                    <<  std::fixed << std::showpoint << std::setprecision(1)
-                    << total;
-    }
-}
-
-void PrintQueueSize()
-{
-    auto data = queueSize;
-    std::cout << "\n\n\n";
-    for (std::size_t j = 0; j < recordQueueTotal; j++)
-    {
-        queueLength << std::setw(3) << j << " " ;
-        for (std::size_t i = 0; i < data.size(); ++i)
-        {
-
-            queueLength << "  "<< std::setw(6)
-                        <<  std::fixed << std::showpoint << std::setprecision(1)
-                        << data[i][j]  ;
-
-        }
-        queueLength << std::endl;
-    }
+    output << std::endl;
 }
 
 void CheckQueueSize(Ptr<QueueDisc> queue)
 {
-
-    // 1500 byte packets
     uint32_t qSize = queue->GetNPackets();
-    queueSize[recordingStep][recordingQueueSizeStep++] = qSize;
-    Simulator::Schedule(recordQueueSizeInterval, &CheckQueueSize, queue);
+    if (activeQueue == MYQ)
+    {
+        auto myQueue = DynamicCast<MyQueueDisc, QueueDisc>(queue);
+        auto stats = myQueue->GetQueueCounter().GetState();
+        queueCounterStats.push_back(stats);
+    }
+    recordsQS.push_back(qSize);
+    if (Simulator::Now() < stopRecordingQS)
+    {
+        Simulator::Schedule(intervalRecordingQS, &CheckQueueSize, queue);
+    }
+}
+
+double ToMbs(uint64_t bits)
+{
+    return (bits * 8) / (intervalRecordingTP.GetSeconds()) / 1e6;
+}
+
+//
+void DumpThroughput(std::ofstream &output, std::vector<std::vector<uint64_t>> data,  bool toMb)
+{
+    for (int i = 0; i < numNodes; ++i)
+    {
+        output << std::setfill(' ') << std::setw(4) << i << " ";
+        for (int j = 0; j < data.size(); ++j)
+        {
+            output << std::setfill(' ') << std::setw(widthThroughPuts)
+                   << std::fixed << std::showpoint
+                   << std::setprecision(toMb ? 1 : 0)
+                   <<  (toMb ? ToMbs(data[j][i]) : data[j][i]) << " ";
+        }
+        output << "\n";
+    }
+    output << "\n";
+    output << "Total";
+    for (int i = 0; i < data.size(); ++i)
+    {
+        uint64_t num = 0;
+        for (int j = 0; j < numNodes; ++j)
+        {
+            num += data[i][j];
+        }
+        output << std::setfill(' ') << std::setw(widthThroughPuts)
+               << std::fixed << std::showpoint
+               << std::setprecision(toMb ? 1 : 0)
+               << (toMb? ToMbs(num) : num) << " ";
+    }
+    output << "\n\n\n";
+}
+
+void DumpVectorOfVector(std::ofstream &output, std::vector<std::vector<uint64_t>> data)
+{
+    output << "Dumped vector value:\n";
+    for (int i = 0; i < data.size(); ++i)
+    {
+        for (auto n : data[i])
+        {
+            output << n << " ";
+        }
+        output << "\n";
+    }
+    output<<"\n\n";
+}
+
+void CheckThroughputAndMarking()
+{
+    sinkBytes.push_back(AppendVector(numNodes));
+    markBytes.push_back(AppendVector(numNodes));
+    if (Simulator::Now() < stopRecordingTP)
+    {
+        Simulator::Schedule(intervalRecordingTP, &CheckThroughputAndMarking);
+    }
+}
+
+
+
+void InitVector(std::vector<uint64_t> v)
+{
+    for (int i = 0; i < v.size(); ++i)
+    {
+        v[i] = 0;
+    }
 }
 
 void PrintProgress(Time interval)

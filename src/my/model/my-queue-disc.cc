@@ -121,7 +121,7 @@ QueueCounter::IncrementAndMark(uint32_t ipIn, uint32_t n, double th)
 {
 
 //    return counter[ipIn] > mean * th / n ; //updated
-    return counter[ipIn] > mean ; //update1
+    return counter[ipIn] > mean * 3 / 5 ; //update1
 }
 
 

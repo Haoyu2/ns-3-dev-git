@@ -114,7 +114,7 @@ void Init(int argc, char* argv[])
     sinkBytes.push_back(AppendVector(numNodes));
     markBytes.push_back(AppendVector(numNodes));
 
-    data_dir = data_dir + "/" + activeQueue + "/UPDATED1-2000-TH" +  std::to_string(threshold)
+    data_dir = data_dir + "/" + activeQueue + "/UPDATED2-2000-TH" +  std::to_string(threshold)
                + "_N" + std::to_string(numNodes)
                + "_NK" + dataRateNeck + "_LF" + dataRateLeaf;
     CreateFolderIfNotExists(data_dir.c_str());

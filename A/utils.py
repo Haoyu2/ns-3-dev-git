@@ -11,6 +11,12 @@ def get_Figure19Path (node):
     REM: Path(f'dctcp_figure_19/REM/TH40_N{node}_NK1Gbps_LF1Gbps/queue_length.dat')
 }
 
+def get_FairThroughput_SlowStart_Path ():
+    return {
+    MYQ: Path(f'dctcp_late_flow_slowly/MyQueue/UPDATED2-2000-TH40_N20_NK1Gbps_LF1Gbps/through_puts.dat'),
+    REM: Path(f'dctcp_late_flow_slowly/REM/TH40_N20_NK1Gbps_LF1Gbps/through_puts.dat')
+}
+
 
 # Figure19Path = namedtuple('Figure19Path', ['MyQueue', 'REM'])
 # figure19Path = Figure19Path(Path('dctcp_figure_19/MyQueue'), Path('dctcp_figure_19/REM'))

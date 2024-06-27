@@ -64,6 +64,7 @@ void Set_CLI_Args(CommandLine& cmd, int argc, char* argv[])
     supportQueue[MYQ] = SetTFMyQueueDisc;
 
     cmd.AddValue("AQ", "Active queue algorithm at bottle neck", activeQueue);
+    cmd.AddValue("Abrupt", "A half of testing flows starts late abruptly ", abrupt);
     cmd.AddValue("MarkingThreshold", "ECN Marking Threshold at Queue", threshold);
     cmd.AddValue("NumberNodes", "Total number of node for flow", numNodes);
 
@@ -178,7 +179,19 @@ Ptr<PacketSink> SetupFlow(int iFlow, Ptr<Node> leftNode, Ipv4Address rightIP, Pt
     AddressValue remoteAddress(InetSocketAddress(rightIP, port));
     clientHelper1.SetAttribute("Remote", remoteAddress);
     clientApps1.Add(clientHelper1.Install(leftNode));
-    clientApps1.Start(iFlow * flowStartupWindow / numNodes );
+    if (abrupt != Seconds(0))
+    {
+        if (iFlow < (numNodes/2))
+        {
+            clientApps1.Start(Seconds(0));
+        } else
+        {
+            clientApps1.Start(abrupt);
+        }
+    }else
+    {
+            clientApps1.Start(iFlow * flowStartupWindow / numNodes );
+    };
     clientApps1.Stop(stopTime);
 
     return packetSink;

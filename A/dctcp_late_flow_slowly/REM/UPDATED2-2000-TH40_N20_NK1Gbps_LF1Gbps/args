@@ -1,0 +1,16 @@
+/mnt/c/Users/haoyu/CLionProjects/ns-3-dev-git/build/src/my/example/ns3-dev-my-main-example-debug
+--AQ=REM
+--MarkingThreshold=40
+--NumberNodes=20
+--DataRateNeck=1Gbps
+--DataRateLeaf=1Gbps
+--DelayNeck=50us
+--DelayLeaf=25us
+--FlowStartupWindow=2s
+--StopTime=3s
+--StartRecordingQS=3s
+--StopRecordingQS=3s
+--IntervalRecordingQS=1ms
+--StartRecordingTP=0s
+--StopRecordingTP=3s
+--IntervalRecordingTP=0.2s

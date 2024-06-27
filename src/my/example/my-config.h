@@ -32,6 +32,7 @@ using namespace ns3;
 typedef std::tuple<TrafficControlHelper, TrafficControlHelper> (*SetupQueueFunction)(void); // function pointer type
 inline std::string  activeQueue = REM ;
 inline std::map<std::string, SetupQueueFunction> supportQueue;
+inline Time abrupt = Seconds(0);
 /*
  *  Testing Node and Queue Marking Threshold
  *
@@ -72,7 +73,7 @@ inline std::string delayLeaf = "10us";
  *
  * */
 // Results folder
-inline auto  data_dir = RESULT_DIR + "/dctcp_figure_19";
+inline auto  data_dir = RESULT_DIR + "/dctcp_late_flow_abrupt";
 
 inline int widthRecordTimeTP = 4;
 inline int widthRecordTimeQS = 6;

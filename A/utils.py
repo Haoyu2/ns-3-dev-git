@@ -76,10 +76,41 @@ def draw_figure19(node):
     plt.show()
 
 
-def draw_fair_throughput( queue, mode):
+def jain_fairness(arr, i=20):
+    sum, sumSqare = 0, 0
+    for n in arr:
+        sum += n
+        sumSqare += n * n
+    return sum*sum / (len(arr) * sumSqare)
+
+
+def draw_fairness():
     plt.figure(figsize=(10, 6))
 
+    for queue, color in [(MYQ, "red"), (REM, 'green')]:
+        for fair_tp, marker in [(SLOWLY, "o"), (ABRUPT, "*")]:
+            xi = 0 if fair_tp != ABRUPT else 6
+            tps = get_fair_throughput(queue, fair_tp)
+            x = [f'{i * 0.2:0.1f}s' for i in range(1, len(tps[0]) + 1)]
+            fairs = ([jain_fairness(n) for n in [*zip(*tps[:-1])]])
+            plt.plot(x[xi:], fairs[xi:], label=f'{queue} {fair_tp}', color=color, marker=marker)
+    plt.title(f'Jain Fairness')
+    plt.axvline(x="1.4s", color='black', linestyle='--')
+
+    # Add a note (annotation) for the vertical line
+    # plt.text(1, , 'Next 10 flow starts at 1.4s', verticalalignment='center_baseline')
+
+    # Add x and y labels
+    plt.xlabel('Time(s)')
+    plt.ylabel('Fairness index')
+
+    # Add a legend
+    plt.legend()
+    plt.show()
+def draw_fair_throughput( queue, mode):
+    plt.figure(figsize=(10, 6))
     y = get_fair_throughput(queue, mode)
+
     x = [f'{i*0.2:0.1f}s' for i in range(1, len(y[0])+1)]
     lines = []
     for i, yi in enumerate(y[:-1]):
@@ -114,5 +145,11 @@ if __name__ == '__main__':
     # draw_figure19(40)
     # draw_fair_throughput(MYQ, SLOWLY)
     # draw_fair_throughput(MYQ, ABRUPT)
-    draw_fair_throughput(REM, ABRUPT)
-    draw_fair_throughput(REM, SLOWLY)
+    # draw_fair_throughput(REM, ABRUPT)
+    # draw_fair_throughput(REM, SLOWLY)
+    draw_fairness() # dont include total
+#     a = [1125096,1459584,1487096,1015048,1420488,1151160,1022288,1510264,1136680,1288720,1155504,1313336,1039664,1117856,987536,1028080,1430624,961472,1294512,1155504,
+# ]
+#     print(jain_fairness(a))
+#     tps = get_fair_throughput(MYQ, SLOWLY)
+#     print([*zip(*tps)])

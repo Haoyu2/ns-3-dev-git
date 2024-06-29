@@ -97,7 +97,7 @@ def draw_fairness():
                 color = "black"
             tps = get_fair_throughput(queue, fair_tp)
             x = [f'{i * 0.2:0.1f}s' for i in range(1, len(tps[0]) + 1)]
-            print([*zip(*tps[:-1])])
+            # print([*zip(*tps[:-1])])
             fairs = ([jain_fairness(n, fair_tp) for n in [*zip(*tps[:-1])]])
             plt.plot(x[xi:], fairs[xi:], label=f'{queue} {fair_tp}', color=color, marker=marker)
     plt.title(f'Jain Fairness')
@@ -120,7 +120,10 @@ def draw_fair_throughput( queue, mode):
     x = [f'{i*0.2:0.1f}s' for i in range(1, len(y[0])+1)]
     lines = []
     for i, yi in enumerate(y[:-1]):
-        line, = plt.plot(x, yi, label=f'Flow {i}')
+        if mode == ABRUPT and i >= 6:
+            line, = plt.plot(x[6:], yi[6:], label=f'Flow {i}')
+        else:
+            line, = plt.plot(x, yi, label=f'Flow {i}')
         lines.append(line)
     line, = plt.plot(x, y[-1], label=f'Flow total', color='red')
     lines.append(line)
@@ -150,10 +153,10 @@ if __name__ == '__main__':
     # draw_figure19(2)
     # draw_figure19(40)
     # draw_fair_throughput(MYQ, SLOWLY)
-    # draw_fair_throughput(MYQ, ABRUPT)
+    draw_fair_throughput(MYQ, ABRUPT)
     # draw_fair_throughput(REM, ABRUPT)
     # draw_fair_throughput(REM, SLOWLY)
-    draw_fairness() # dont include total
+    # draw_fairness() # dont include total
 #     a = [1125096,1459584,1487096,1015048,1420488,1151160,1022288,1510264,1136680,1288720,1155504,1313336,1039664,1117856,987536,1028080,1430624,961472,1294512,1155504,
 # ]
 #     print(jain_fairness(a))

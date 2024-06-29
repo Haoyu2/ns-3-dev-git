@@ -76,9 +76,12 @@ def draw_figure19(node):
     plt.show()
 
 
-def jain_fairness(arr, i=20):
+def jain_fairness(arr, fair_tp):
     sum, sumSqare = 0, 0
-    for n in arr:
+    for i, n in enumerate(arr):
+        # print(n, n == 0)
+        # if n == 0 and fair_tp != ABRUPT:
+        #     return sum*sum / ((i+1) * sumSqare)
         sum += n
         sumSqare += n * n
     return sum*sum / (len(arr) * sumSqare)
@@ -89,10 +92,13 @@ def draw_fairness():
 
     for queue, color in [(MYQ, "red"), (REM, 'green')]:
         for fair_tp, marker in [(SLOWLY, "o"), (ABRUPT, "*")]:
-            xi = 0 if fair_tp != ABRUPT else 6
+            xi = 0 if fair_tp != ABRUPT else 7
+            if fair_tp == ABRUPT:
+                color = "black"
             tps = get_fair_throughput(queue, fair_tp)
             x = [f'{i * 0.2:0.1f}s' for i in range(1, len(tps[0]) + 1)]
-            fairs = ([jain_fairness(n) for n in [*zip(*tps[:-1])]])
+            print([*zip(*tps[:-1])])
+            fairs = ([jain_fairness(n, fair_tp) for n in [*zip(*tps[:-1])]])
             plt.plot(x[xi:], fairs[xi:], label=f'{queue} {fair_tp}', color=color, marker=marker)
     plt.title(f'Jain Fairness')
     plt.axvline(x="1.4s", color='black', linestyle='--')

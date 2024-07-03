@@ -89,6 +89,6 @@ int main(int argc, char* argv[])
     neckQ->GetStats().Print(throughPutStream);
     DumpVectorOfVector(throughPutStream, sinkBytes);
     DumpVectorOfVector(throughPutStream, markBytes);
-
+//    DumpVectorOfVector(throughPutStream, clientBytes);
     return 0;
 }

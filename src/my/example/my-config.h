@@ -29,7 +29,7 @@ using namespace ns3;
 #define MYQ "MyQueue"
 #define RED "RED"
 
-typedef std::tuple<TrafficControlHelper, TrafficControlHelper> (*SetupQueueFunction)(void); // function pointer type
+typedef std::tuple<TrafficControlHelper, TrafficControlHelper> (*SetupQueueFunction)(); // function pointer type
 inline std::string  activeQueue = REM ;
 inline std::map<std::string, SetupQueueFunction> supportQueue;
 inline Time abrupt = Seconds(0);
@@ -39,6 +39,7 @@ inline Time abrupt = Seconds(0);
  * */
 
 inline uint32_t numNodes = 2;
+inline uint32_t counterTotal = 1000;
 inline uint32_t threshold = 40;
 /*
  *  Testing Time
@@ -54,6 +55,7 @@ inline Time intervalRecordingTP = Seconds(0.5);
 
 // these row length has to be the same
 inline std::vector<std::vector<uint64_t>> sinkBytes;
+inline std::vector<std::vector<uint64_t>> clientBytes(1, std::vector<uint64_t>(10));
 inline std::vector<std::vector<uint64_t>> markBytes;
 
 
@@ -114,4 +116,5 @@ void InitVector(std::vector<uint64_t> v);
 void DumpQueueSize(std::ofstream &output);
 void DumpThroughput(std::ofstream &output, std::vector<std::vector<uint64_t>> data, bool );
 void DumpVectorOfVector(std::ofstream &output, std::vector<std::vector<uint64_t>> data);
+void TraceClient(std::size_t index, Ptr<const Packet> p);
 #endif // NS3_CONFIG_H

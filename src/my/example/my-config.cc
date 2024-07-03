@@ -22,7 +22,7 @@ void PrintTPHeader(std::ofstream &output)
     {
         output << std::setfill(' ') << std::setw(widthThroughPuts)
                   << std::fixed << std::showpoint
-                  << std::setprecision(1)
+                  << std::setprecision(3)
                   <<  (time1 > stopRecordingTP ? stopRecordingTP : time1)  .GetSeconds() << "s ";
         time1 += intervalRecordingTP;
     }
@@ -67,6 +67,7 @@ void Set_CLI_Args(CommandLine& cmd, int argc, char* argv[])
     cmd.AddValue("Abrupt", "A half of testing flows starts late abruptly ", abrupt);
     cmd.AddValue("MarkingThreshold", "ECN Marking Threshold at Queue", threshold);
     cmd.AddValue("NumberNodes", "Total number of node for flow", numNodes);
+    cmd.AddValue("CounterTotal", "Total number of node for flow", counterTotal);
 
     cmd.AddValue("DataRateNeck", "Data rate at bottle neck link", dataRateNeck);
     cmd.AddValue("DataRateLeaf", "Data rate at leaf link", dataRateLeaf);
@@ -115,9 +116,13 @@ void Init(int argc, char* argv[])
     sinkBytes.push_back(AppendVector(numNodes));
     markBytes.push_back(AppendVector(numNodes));
 
-    data_dir = data_dir + "/" + activeQueue + "/UPDATED2-2000-TH" +  std::to_string(threshold)
+    data_dir = data_dir + "/" + activeQueue + "/ra"
+               + "/CT_" +std::to_string(counterTotal)
+               + "-TH" +  std::to_string(threshold)
                + "_N" + std::to_string(numNodes)
-               + "_NK" + dataRateNeck + "_LF" + dataRateLeaf;
+               + "_NK" + dataRateNeck + "_LF" + dataRateLeaf
+               + "_NK" + delayNeck + "_LF" + delayLeaf
+        ;
     CreateFolderIfNotExists(data_dir.c_str());
 
     std::ofstream argStream(data_dir + "/args");
@@ -186,11 +191,13 @@ Ptr<PacketSink> SetupFlow(int iFlow, Ptr<Node> leftNode, Ipv4Address rightIP, Pt
             clientApps1.Start(Seconds(0));
         } else
         {
-            clientApps1.Start(abrupt);
+            clientApps1.Start(abrupt + MilliSeconds(10)* iFlow);
+//            clientApps1.Get(0)->TraceConnectWithoutContext("Tx", MakeBoundCallback(&TraceClient, iFlow));
         }
     }else
     {
-            clientApps1.Start(iFlow * flowStartupWindow / numNodes );
+        // this is for grace startup not for abrupt
+        clientApps1.Start(iFlow * flowStartupWindow / numNodes );
     };
     clientApps1.Stop(stopTime);
 
@@ -198,6 +205,10 @@ Ptr<PacketSink> SetupFlow(int iFlow, Ptr<Node> leftNode, Ipv4Address rightIP, Pt
 }
 
 
+void TraceClient(std::size_t index, Ptr<const Packet> p)
+{
+    clientBytes[0][index%10]++;
+}
 
 void TraceSink(std::size_t index, Ptr<const Packet> p, const Address& a)
 {

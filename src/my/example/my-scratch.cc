@@ -31,19 +31,19 @@ main(int argc, char* argv[])
      }
 
 
-     for (int i = 0; i < 20; ++i)
-     {
-         std::cout << std::setfill('0') << std::setw(2) << i << " ";
-         for (int j = 0; j < 5; ++j)
-         {
-             std::cout << std::setfill(' ') << std::setw(7)
-                    << std::fixed << std::showpoint
-                    << std::setprecision(1)
-                    << j * 52.0/3.0 << " ";
-         }
-         std::cout << "\n";
-     }
-     std::cout << "\n";
+//     for (int i = 0; i < 20; ++i)
+//     {
+//         std::cout << std::setfill('0') << std::setw(2) << i << " ";
+//         for (int j = 0; j < 5; ++j)
+//         {
+//             std::cout << std::setfill(' ') << std::setw(7)
+//                    << std::fixed << std::showpoint
+//                    << std::setprecision(1)
+//                    << j * 52.0/3.0 << " ";
+//         }
+//         std::cout << "\n";
+//     }
+//     std::cout << "\n";
 
 
      //    std::cout << "FindSelfDirectory:   " << SystemPath::FindSelfDirectory() << std::endl;

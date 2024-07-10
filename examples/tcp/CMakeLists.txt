@@ -114,4 +114,5 @@ build_example(
     ${libpoint-to-point}
     ${libapplications}
     ${libtraffic-control}
+    ${libmy}
 )

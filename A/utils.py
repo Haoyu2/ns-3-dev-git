@@ -1,10 +1,25 @@
 import matplotlib.pyplot as plt
 from pathlib import Path
 
+from matplotlib.ticker import MaxNLocator, AutoMinorLocator
+
 MYQ = 'MyQueue'
 REM = 'REM'
+RED = 'RED'
 SLOWLY = 'slowly'
 ABRUPT = 'abrupt'
+
+
+def get_Figure16Path(mode, node, gb, th, cq):
+    # mode ct, ra
+    if th == 0:
+        th = 65 if gb == 10 else 20
+        if mode == RED: th = 200
+    return {
+        MYQ: Path(f'figure16/MyQueue/{mode}/CT_{cq}-TH{th}_N{node}_NK{gb}Gbps_LF1Gbps_NK20us_LF30us/through_puts.dat'),
+        REM: Path(f'figure16/REM/{mode}/CT_{cq}-TH{th}_N{node}_NK{gb}Gbps_LF1Gbps_NK20us_LF30us/through_puts.dat'),
+        RED: Path(f'figure16/RED/{mode}/CT_{cq}-TH{th}_N{node}_NK{gb}Gbps_LF1Gbps_NK20us_LF30us/through_puts.dat'),
+    }
 
 
 def get_Figure19Path(node):
@@ -52,6 +67,20 @@ def get_figure19(queue, node):
     return res
 
 
+def get_figure16_data(queue, mode, node, gb, th, cq):
+    y = []
+    with open(get_Figure16Path(mode, node, gb, th, cq)[queue]) as file:
+        file.readline()
+        file.readline()
+        file.readline()
+        file.readline()
+        for i in range(node):
+            data = file.readline().strip().split()
+            if len(data) == 0: continue
+            y.append([float(i) for i in data[1:-1]])
+    return y
+
+
 def draw_figure19(node):
     plt.figure(figsize=(10, 6))
     x, y1 = get_figure19(MYQ, node)
@@ -84,7 +113,7 @@ def jain_fairness(arr, fair_tp):
         #     return sum*sum / ((i+1) * sumSqare)
         sum += n
         sumSqare += n * n
-    return sum*sum / (len(arr) * sumSqare)
+    return sum * sum / (len(arr) * sumSqare)
 
 
 def draw_fairness():
@@ -113,11 +142,13 @@ def draw_fairness():
     # Add a legend
     plt.legend()
     plt.show()
-def draw_fair_throughput( queue, mode):
+
+
+def draw_fair_throughput(queue, mode):
     plt.figure(figsize=(10, 6))
     y = get_fair_throughput(queue, mode)
 
-    x = [f'{i*0.2:0.1f}s' for i in range(1, len(y[0])+1)]
+    x = [f'{i * 0.2:0.1f}s' for i in range(1, len(y[0]) + 1)]
     lines = []
     for i, yi in enumerate(y[:-1]):
         if mode == ABRUPT and i >= 6:
@@ -148,12 +179,44 @@ def draw_fair_throughput( queue, mode):
     # Show the plot
     plt.show()
 
+
+def draw_figure16_throughput(queue, mode, node, gb , th, cq):
+    figure = plt.figure(figsize=(20, 6))
+    fig, ax = plt.subplots()
+    y = get_figure16_data(queue, mode, node, gb, th, cq)
+
+    x = [f'{i*10}ms' for i in range(len(y[0]))]
+    lines = []
+    print(len(y))
+    for i, yi in enumerate(y):
+        print(i)
+        print(yi)
+        line, = ax.plot(x, yi, label=f'Flow {i}')
+        lines.append(line)
+    # Add a legend
+    # first_legend = plt.legend(handles=lines, ncol=2, loc='center left')
+    # Add a title
+    plt.title(f'{queue} {mode} {node} {gb} {cq}')
+    # plt.xticks(["0.2s", "0.4s"])
+    # Add x and y labels
+    plt.xlabel('Time(s)')
+    plt.ylabel('Throughput MB/s')
+
+    ax.xaxis.set_major_locator(MaxNLocator(6))
+    ax.xaxis.set_minor_locator(AutoMinorLocator(2))
+    # Show the plot
+    plt.show()
+
+
 if __name__ == '__main__':
     print('HI')
+    # y = get_figure16_data(MYQ)
+
+    draw_figure16_throughput(MYQ, 'ct',40 , 10, 65, 300)
     # draw_figure19(2)
     # draw_figure19(40)
     # draw_fair_throughput(MYQ, SLOWLY)
-    draw_fair_throughput(MYQ, ABRUPT)
+    # draw_fair_throughput(MYQ, ABRUPT)
     # draw_fair_throughput(REM, ABRUPT)
     # draw_fair_throughput(REM, SLOWLY)
     # draw_fairness() # dont include total

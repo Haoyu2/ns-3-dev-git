@@ -3,6 +3,58 @@
 using namespace ns3;
 
 
+// RED means MyRedQueueDisc
+void SetDefaultRedQueueDisc()
+{
+    // Set default parameters for RED queue disc
+    Config::SetDefault("ns3::RedQueueDisc::UseEcn", BooleanValue(true));
+    // ARED may be used but the queueing delays will increase; it is disabled
+    // here because the SIGCOMM paper did not mention it
+    // Config::SetDefault ("ns3::RedQueueDisc::ARED", BooleanValue (true));
+    // Config::SetDefault ("ns3::RedQueueDisc::Gentle", BooleanValue (true));
+    Config::SetDefault("ns3::RedQueueDisc::UseHardDrop", BooleanValue(false));
+    Config::SetDefault("ns3::RedQueueDisc::MeanPktSize", UintegerValue(1500));
+    // Triumph and Scorpion switches used in DCTCP Paper have 4 MB of buffer
+    // If every packet is 1500 bytes, 2666 packets can be stored in 4 MB
+    Config::SetDefault("ns3::RedQueueDisc::MaxSize", QueueSizeValue(QueueSize("2666p")));
+    // DCTCP tracks instantaneous queue length only; so set QW = 1
+    Config::SetDefault("ns3::RedQueueDisc::QW", DoubleValue(1));
+    Config::SetDefault("ns3::RedQueueDisc::MinTh", DoubleValue(20));
+    Config::SetDefault("ns3::RedQueueDisc::MaxTh", DoubleValue(60));
+}
+
+
+// traffic control layer
+std::tuple<TrafficControlHelper, TrafficControlHelper> SetTFRedQueueDisc()
+{
+    SetDefaultMyRedQueueDisc();
+    TrafficControlHelper neckQueue;
+    neckQueue.SetRootQueueDisc("ns3::RedQueueDisc",
+                               "LinkBandwidth",
+                               StringValue(dataRateNeck),
+                               "LinkDelay",
+                               StringValue(delayNeck),
+                               "MinTh",
+                               DoubleValue(threshold),
+                               "MaxTh",
+                               DoubleValue(threshold));
+
+    TrafficControlHelper leafQueue;
+    leafQueue.SetRootQueueDisc("ns3::RedQueueDisc",
+                               "LinkBandwidth",
+                               StringValue(dataRateLeaf),
+                               "LinkDelay",
+                               StringValue(delayLeaf),
+                               "MinTh",
+                               DoubleValue(threshold),
+                               "MaxTh",
+                               DoubleValue(threshold));
+
+    return {neckQueue, leafQueue};
+}
+
+
+
 // REM means MyRedQueueDisc
 void SetDefaultMyRedQueueDisc()
 {

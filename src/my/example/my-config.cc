@@ -62,6 +62,7 @@ void Set_CLI_Args(CommandLine& cmd, int argc, char* argv[])
 {
     supportQueue[REM] = SetTFMyRedQueueDisc;
     supportQueue[MYQ] = SetTFMyQueueDisc;
+    supportQueue[RED] = SetTFRedQueueDisc;
 
     cmd.AddValue("AQ", "Active queue algorithm at bottle neck", activeQueue);
     cmd.AddValue("Abrupt", "A half of testing flows starts late abruptly ", abrupt);
@@ -116,7 +117,7 @@ void Init(int argc, char* argv[])
     sinkBytes.push_back(AppendVector(numNodes));
     markBytes.push_back(AppendVector(numNodes));
 
-    data_dir = data_dir + "/" + activeQueue + "/ra"
+    data_dir = data_dir + "/" + activeQueue + "/ct"
                + "/CT_" +std::to_string(counterTotal)
                + "-TH" +  std::to_string(threshold)
                + "_N" + std::to_string(numNodes)
@@ -184,22 +185,35 @@ Ptr<PacketSink> SetupFlow(int iFlow, Ptr<Node> leftNode, Ipv4Address rightIP, Pt
     AddressValue remoteAddress(InetSocketAddress(rightIP, port));
     clientHelper1.SetAttribute("Remote", remoteAddress);
     clientApps1.Add(clientHelper1.Install(leftNode));
-    if (abrupt != Seconds(0))
+
+
+    if (iFlow < 20)
     {
-        if (iFlow < (numNodes/2))
-        {
-            clientApps1.Start(Seconds(0));
-        } else
-        {
-            clientApps1.Start(abrupt + MilliSeconds(10)* iFlow);
-//            clientApps1.Get(0)->TraceConnectWithoutContext("Tx", MakeBoundCallback(&TraceClient, iFlow));
-        }
+        clientApps1.Start(Seconds(0));
+        clientApps1.Stop(Seconds(1));
     }else
     {
-        // this is for grace startup not for abrupt
-        clientApps1.Start(iFlow * flowStartupWindow / numNodes );
-    };
-    clientApps1.Stop(stopTime);
+        auto start = Seconds( 0.5);
+        clientApps1.Start(start);
+        clientApps1.Stop(Seconds(1));
+    }
+
+//    if (abrupt != Seconds(0))
+//    {
+//        if (iFlow < (numNodes/2))
+//        {
+//            clientApps1.Start(Seconds(0));
+//        } else
+//        {
+//            clientApps1.Start(abrupt + MilliSeconds(10)* iFlow);
+////            clientApps1.Get(0)->TraceConnectWithoutContext("Tx", MakeBoundCallback(&TraceClient, iFlow));
+//        }
+//    }else
+//    {
+//        // this is for grace startup not for abrupt
+//        clientApps1.Start(iFlow * flowStartupWindow / numNodes );
+//    };
+//    clientApps1.Stop(stopTime);
 
     return packetSink;
 }

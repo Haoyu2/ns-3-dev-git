@@ -10,8 +10,9 @@ void Init()
     cm_ips[SEND1] = {};
     cm_ips[SEND2] = {};
     cm_ips[SEND3] = {};
+    std::string RESULT_DIR = std::string (PROJECT_SOURCE_PATH) + "/A";
     // Q1 is DCTCP queue
-    std::string folder = "Q1/"
+    std::string folder = RESULT_DIR + "/multi-hop-topology/dctcp-queue/"
                                 + std::to_string(MaxTH_SWITCH1) + "-"
                                 + std::to_string(MaxTH_SWITCH2);
     CreateFolderIfNotExists(folder.c_str());
@@ -146,24 +147,41 @@ void TraceS3R1Sink(std::size_t index, Ptr<const Packet> p, const Address& a)
 
 void PrintThroughput()
 {
+
+    rxS1R1Throughput << std::fixed << std::setprecision(3)
+                        << Simulator::Now().GetSeconds() << "s ";
+    rxS2R2Throughput << std::fixed << std::setprecision(3)
+                     << Simulator::Now().GetSeconds() << "s ";
+    rxS3R1Throughput << std::fixed << std::setprecision(3)
+                     << Simulator::Now().GetSeconds() << "s ";
+
     for (std::size_t i = 0; i < 10; i++)
     {
-        rxS1R1Throughput << measurementWindow.GetSeconds() << "s " << i << " "
-                         << (rxS1R1Bytes[i] * 8) / (measurementWindow.GetSeconds()) / 1e6
-                         << std::endl;
+        rxS1R1Throughput << std::fixed << std::setprecision(3)
+            << (rxS1R1Bytes[i] * 8) / (measurementWindowTP.GetSeconds()) / 1e6
+                         << "\t\t";
     }
+    rxS1R1Throughput << std::endl;
     for (std::size_t i = 0; i < 20; i++)
     {
-        rxS2R2Throughput << Simulator::Now().GetSeconds() << "s " << i << " "
-                         << (rxS2R2Bytes[i] * 8) / (measurementWindow.GetSeconds()) / 1e6
-                         << std::endl;
+        rxS2R2Throughput << std::fixed << std::setprecision(3)
+            << (rxS2R2Bytes[i] * 8) / (measurementWindowTP.GetSeconds()) / 1e6
+                         << "\t\t";
     }
+    rxS2R2Throughput << std::endl;
     for (std::size_t i = 0; i < 10; i++)
     {
-        rxS3R1Throughput << Simulator::Now().GetSeconds() << "s " << i << " "
-                         << (rxS3R1Bytes[i] * 8) / (measurementWindow.GetSeconds()) / 1e6
-                         << std::endl;
+        rxS3R1Throughput << std::fixed << std::setprecision(3)
+            << (rxS3R1Bytes[i] * 8) / (measurementWindowTP.GetSeconds()) / 1e6
+                         << "\t\t";
     }
+    rxS3R1Throughput << std::endl;
+    IncrementCurrentRecordingStep();
+    if (Simulator::Now() < (flowStartupWindow + convergenceTime + Seconds(0.2)))
+    {
+        Simulator::Schedule( measurementWindowTP, &PrintThroughput);
+    }
+
 }
 
 

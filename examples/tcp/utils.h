@@ -28,9 +28,9 @@ inline char RedQueueDisc[] = "ns3::RedQueueDisc";
 inline char* BottleNeckQueueDisc = MY_RedQueueDisc;
 
 inline int MinTH_SWITCH1 = 40;
-inline int MaxTH_SWITCH1 = 75;
+inline int MaxTH_SWITCH1 = 60;
 inline int MinTH_SWITCH2 = 20;
-inline int MaxTH_SWITCH2 = 55;
+inline int MaxTH_SWITCH2 = 60;
 
 
 
@@ -38,8 +38,9 @@ inline int MaxTH_SWITCH2 = 55;
 inline std::string outputFilePath = ".";
 inline std::string tcpTypeId = "TcpDctcp";
 inline Time flowStartupWindow = Seconds(1);
-inline Time convergenceTime = Seconds(3);
-inline Time measurementWindow = Seconds(1);
+inline Time convergenceTime = Seconds(0);
+inline Time measurementWindow = Seconds(0.5);
+inline Time measurementWindowTP = MilliSeconds(10);
 inline bool enableSwitchEcn = true;
 inline Time progressInterval = MilliSeconds(100);
 

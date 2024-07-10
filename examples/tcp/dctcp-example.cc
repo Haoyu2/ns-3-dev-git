@@ -374,8 +374,7 @@ main(int argc, char* argv[])
     }
     Simulator::Schedule (flowStartupWindow + convergenceTime, &IncrementCurrentRecordingStep);
 
-    Simulator::Schedule(flowStartupWindow + convergenceTime + measurementWindow,
-                        &PrintThroughput);
+    Simulator::Schedule(flowStartupWindow + convergenceTime + measurementWindowTP, &PrintThroughput);
     Simulator::Schedule(flowStartupWindow + convergenceTime + measurementWindow,
                         &PrintFairness);
     Simulator::Schedule(progressInterval, &PrintProgress, progressInterval);

@@ -75,7 +75,7 @@ inline std::string delayLeaf = "10us";
  *
  * */
 // Results folder
-inline auto  data_dir = RESULT_DIR + "/dctcp_late_flow_abrupt";
+inline auto  data_dir = RESULT_DIR + "/figure16";
 
 inline int widthRecordTimeTP = 4;
 inline int widthRecordTimeQS = 6;
@@ -117,4 +117,5 @@ void DumpQueueSize(std::ofstream &output);
 void DumpThroughput(std::ofstream &output, std::vector<std::vector<uint64_t>> data, bool );
 void DumpVectorOfVector(std::ofstream &output, std::vector<std::vector<uint64_t>> data);
 void TraceClient(std::size_t index, Ptr<const Packet> p);
+std::tuple<TrafficControlHelper, TrafficControlHelper> SetTFRedQueueDisc();
 #endif // NS3_CONFIG_H

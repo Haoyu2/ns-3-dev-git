@@ -89,6 +89,7 @@ Analysis outputs:
 - `policy-summary.csv` and `.md`: policy-level means and standard deviations.
 - `scenario-summary.csv` and `.md`: scenario-level policy summaries.
 - `pairwise-comparison.csv`: twin deltas against threshold and aggressive baselines.
+- `feasibility-comparison.csv`: controller deltas against all-on references.
 - `energy-risk.svg`: dependency-free energy/loss scatter plot.
 
 Near-term extension list:

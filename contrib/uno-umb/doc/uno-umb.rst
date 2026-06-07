@@ -89,6 +89,10 @@ the twin policy, and an ``energy-risk.svg`` scatter plot.  It also reports a
 safe energy-saving metric that counts energy saving only for runs with no SLA
 violation and no unsafe sleep action.
 
+When all-on reference rows are included, the analyzer also writes
+``feasibility-comparison.csv``.  This output separates controller-induced SLA
+violations from workloads that violate the SLA even with all cells active.
+
 Helpers
 ~~~~~~~
 

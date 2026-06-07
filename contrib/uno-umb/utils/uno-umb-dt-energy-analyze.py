@@ -274,6 +274,96 @@ def write_pairwise_comparison(rows, output_dir):
     return comparison_csv
 
 
+def write_feasibility_comparison(rows, output_dir):
+    scenario_fields = [
+        "seed",
+        "run",
+        "enbs",
+        "ues",
+        "ue_rate_mbps",
+        "enb_spacing_m",
+        "traffic_profile",
+        "burst_rate_multiplier",
+        "shift_start_s",
+        "shift_stop_s",
+    ]
+    all_on_rows = {}
+    for row in rows:
+        if row["policy"] != "all-on":
+            continue
+        key = tuple(row.get(field, "") for field in scenario_fields)
+        all_on_rows.setdefault(key, row)
+
+    comparison_fields = scenario_fields + [
+        "policy",
+        "uncertainty_scale",
+        "adaptive_min_uncertainty_scale",
+        "adaptive_max_uncertainty_scale",
+        "adaptive_load_shock_gain",
+        "adaptive_utilization_gain",
+        "adaptive_relaxation",
+        "all_on_throughput_mbps",
+        "all_on_loss_ratio",
+        "all_on_sla_violation",
+        "all_on_feasible",
+        "throughput_mbps",
+        "loss_ratio",
+        "sla_violation",
+        "energy_saving_pct",
+        "safe_energy_saving_pct",
+        "excess_loss_vs_all_on",
+        "throughput_delta_vs_all_on",
+        "controller_induced_sla_violation",
+    ]
+    comparison_rows = []
+    for row in rows:
+        if row["policy"] == "all-on":
+            continue
+        key = tuple(row.get(field, "") for field in scenario_fields)
+        all_on = all_on_rows.get(key)
+        if not all_on:
+            continue
+
+        all_on_sla_violation = as_float(all_on, "sla_violation")
+        controller_sla_violation = as_float(row, "sla_violation")
+        comparison_rows.append(
+            {
+                **dict(zip(scenario_fields, key)),
+                "policy": row["policy"],
+                "uncertainty_scale": row.get("uncertainty_scale", ""),
+                "adaptive_min_uncertainty_scale": row.get("adaptive_min_uncertainty_scale", ""),
+                "adaptive_max_uncertainty_scale": row.get("adaptive_max_uncertainty_scale", ""),
+                "adaptive_load_shock_gain": row.get("adaptive_load_shock_gain", ""),
+                "adaptive_utilization_gain": row.get("adaptive_utilization_gain", ""),
+                "adaptive_relaxation": row.get("adaptive_relaxation", ""),
+                "all_on_throughput_mbps": as_float(all_on, "throughput_mbps"),
+                "all_on_loss_ratio": as_float(all_on, "loss_ratio"),
+                "all_on_sla_violation": all_on_sla_violation,
+                "all_on_feasible": 1.0 if all_on_sla_violation < 0.5 else 0.0,
+                "throughput_mbps": as_float(row, "throughput_mbps"),
+                "loss_ratio": as_float(row, "loss_ratio"),
+                "sla_violation": controller_sla_violation,
+                "energy_saving_pct": as_float(row, "energy_saving_pct"),
+                "safe_energy_saving_pct": metric_value(row, "safe_energy_saving_pct"),
+                "excess_loss_vs_all_on": as_float(row, "loss_ratio") -
+                as_float(all_on, "loss_ratio"),
+                "throughput_delta_vs_all_on": as_float(row, "throughput_mbps") -
+                as_float(all_on, "throughput_mbps"),
+                "controller_induced_sla_violation": 1.0
+                if controller_sla_violation > 0.5 and all_on_sla_violation < 0.5
+                else 0.0,
+            }
+        )
+
+    comparison_csv = output_dir / "feasibility-comparison.csv"
+    with comparison_csv.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=comparison_fields)
+        writer.writeheader()
+        writer.writerows(comparison_rows)
+
+    return comparison_csv
+
+
 def write_energy_risk_svg(summary_rows, output_dir):
     width = 760
     height = 460
@@ -395,6 +485,7 @@ def main():
     summary_csv, summary_md, policy_summary_rows = write_policy_summary(rows, output_dir)
     scenario_csv, scenario_md = write_scenario_summary(rows, output_dir)
     comparison_csv = write_pairwise_comparison(rows, output_dir)
+    feasibility_csv = write_feasibility_comparison(rows, output_dir)
     svg_path = write_energy_risk_svg(policy_summary_rows, output_dir)
 
     print(f"Wrote {summary_csv}")
@@ -402,6 +493,7 @@ def main():
     print(f"Wrote {scenario_csv}")
     print(f"Wrote {scenario_md}")
     print(f"Wrote {comparison_csv}")
+    print(f"Wrote {feasibility_csv}")
     print(f"Wrote {svg_path}")
 
 

@@ -17,7 +17,7 @@ Scope and Limitations
 The module currently provides:
 
 * A reusable ``CellSleepController`` model.
-* Four policy modes: all-on, threshold, aggressive, and twin.
+* Five policy modes: all-on, threshold, aggressive, twin, and adaptive-twin.
 * An LTE/EPC example that writes summary and controller-event CSV files.
 * Distribution-shift traffic profiles for steady, center-cell burst, edge-cell
   burst, right-edge burst, and global burst demand.
@@ -38,6 +38,13 @@ estimates the post-sleep maximum active-cell utilization and minimum coverage
 margin, adds uncertainty margins, and sleeps a cell only when both safety checks
 pass.
 
+The adaptive-twin policy uses the same risk gate but updates the uncertainty
+multiplier online.  The multiplier increases when the controller observes a
+large interval-to-interval load shock or high active-cell utilization, and then
+relaxes toward the configured base value after stable intervals.  This creates a
+testable tradeoff between static conservatism and shift-responsive risk
+calibration.
+
 Sleeping a cell is modeled by requesting X2 handovers for served UEs and then
 reducing the eNB transmit power.  Energy is accounted analytically from active
 and sleep power constants.
@@ -55,11 +62,20 @@ Run one policy:
    ./ns3 run "uno-umb-dt-energy --policy=twin --trafficProfile=center-burst \
      --burstRateMultiplier=3.0"
 
-Run the four-policy pilot sweep:
+Run the policy pilot sweep:
 
 .. code-block:: console
 
    python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py
+
+Run a static-versus-adaptive calibration sweep:
+
+.. code-block:: console
+
+   python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
+     --policies=twin,adaptive-twin \
+     --traffic-profiles=center-burst \
+     --uncertainty-scales=0.5,0.7,1.0
 
 Summarize aggregate sweep output:
 
@@ -90,12 +106,15 @@ Traces
 The controller writes a CSV event log with one row per decision interval and
 cell.  The event log includes the policy, action, load estimate, utilization
 estimate, coverage margin estimate, uncertainty margins, and the final twin
-safety decision.
+safety decision.  For adaptive experiments, it also records the effective
+uncertainty scale, the normalized load shock, and the observed maximum
+utilization for each interval.
 
 Examples and Tests
 ------------------
 
-``uno-umb-dt-energy`` compares all-on, threshold, aggressive, and twin
+``uno-umb-dt-energy`` compares all-on, threshold, aggressive, twin, and
+adaptive-twin
 cell-sleep policies in an LTE/EPC scenario and writes CSV summaries.  The
 example can also add a temporary demand burst to a selected subset of UEs so
 that policies are compared under distribution shift.

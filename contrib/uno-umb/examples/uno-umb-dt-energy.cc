@@ -165,6 +165,11 @@ main(int argc, char* argv[])
     double requiredCoverageMarginDb = 3.0;
     double utilizationLimit = 0.78;
     double uncertaintyScale = 1.0;
+    double adaptiveMinUncertaintyScale = 0.5;
+    double adaptiveMaxUncertaintyScale = 2.5;
+    double adaptiveLoadShockGain = 1.5;
+    double adaptiveUtilizationGain = 1.0;
+    double adaptiveRelaxation = 0.25;
     double activePowerW = 180.0;
     double sleepPowerW = 25.0;
     double minGoodputRatio = 0.85;
@@ -182,7 +187,9 @@ main(int argc, char* argv[])
     std::string eventCsv = "uno-umb-dt-energy-events.csv";
 
     CommandLine cmd(__FILE__);
-    cmd.AddValue("policy", "Controller: all-on, threshold, aggressive, or twin", policyName);
+    cmd.AddValue("policy",
+                 "Controller: all-on, threshold, aggressive, twin, or adaptive-twin",
+                 policyName);
     cmd.AddValue("numberOfEnbs", "Number of eNBs", numberOfEnbs);
     cmd.AddValue("numberOfUes", "Number of UEs", numberOfUes);
     cmd.AddValue("lowLoadUes", "UEs initially placed in the low-load center cell", lowLoadUes);
@@ -220,6 +227,21 @@ main(int argc, char* argv[])
                  requiredCoverageMarginDb);
     cmd.AddValue("utilizationLimit", "Twin-side maximum load plus uncertainty", utilizationLimit);
     cmd.AddValue("uncertaintyScale", "Multiplier for twin uncertainty", uncertaintyScale);
+    cmd.AddValue("adaptiveMinUncertaintyScale",
+                 "Minimum adaptive-twin uncertainty multiplier",
+                 adaptiveMinUncertaintyScale);
+    cmd.AddValue("adaptiveMaxUncertaintyScale",
+                 "Maximum adaptive-twin uncertainty multiplier",
+                 adaptiveMaxUncertaintyScale);
+    cmd.AddValue("adaptiveLoadShockGain",
+                 "Adaptive-twin gain for interval-to-interval load shocks",
+                 adaptiveLoadShockGain);
+    cmd.AddValue("adaptiveUtilizationGain",
+                 "Adaptive-twin gain for high utilization",
+                 adaptiveUtilizationGain);
+    cmd.AddValue("adaptiveRelaxation",
+                 "Adaptive-twin relaxation rate after stable intervals",
+                 adaptiveRelaxation);
     cmd.AddValue("activePowerW", "Analytical active eNB power draw", activePowerW);
     cmd.AddValue("sleepPowerW", "Analytical sleeping eNB power draw", sleepPowerW);
     cmd.AddValue("minGoodputRatio", "SLA goodput target relative to offered load", minGoodputRatio);
@@ -237,6 +259,13 @@ main(int argc, char* argv[])
     NS_ABORT_MSG_IF(controlStart <= appStart, "controlStart should be later than appStart.");
     NS_ABORT_MSG_IF(shiftStop <= shiftStart, "shiftStop must be later than shiftStart.");
     NS_ABORT_MSG_IF(burstRateMultiplier < 1.0, "burstRateMultiplier must be at least 1.0.");
+    NS_ABORT_MSG_IF(cellCapacityMbps <= 0.0, "cellCapacityMbps must be positive.");
+    NS_ABORT_MSG_IF(adaptiveMinUncertaintyScale <= 0.0,
+                    "adaptiveMinUncertaintyScale must be positive.");
+    NS_ABORT_MSG_IF(adaptiveMaxUncertaintyScale < adaptiveMinUncertaintyScale,
+                    "adaptiveMaxUncertaintyScale must be at least adaptiveMinUncertaintyScale.");
+    NS_ABORT_MSG_IF(adaptiveRelaxation < 0.0 || adaptiveRelaxation > 1.0,
+                    "adaptiveRelaxation must be in [0, 1].");
 
     const CellSleepPolicyMode policy = ParseCellSleepPolicy(policyName);
 
@@ -396,6 +425,11 @@ main(int argc, char* argv[])
     controllerConfig.requiredCoverageMarginDb = requiredCoverageMarginDb;
     controllerConfig.utilizationLimit = utilizationLimit;
     controllerConfig.uncertaintyScale = uncertaintyScale;
+    controllerConfig.adaptiveMinUncertaintyScale = adaptiveMinUncertaintyScale;
+    controllerConfig.adaptiveMaxUncertaintyScale = adaptiveMaxUncertaintyScale;
+    controllerConfig.adaptiveLoadShockGain = adaptiveLoadShockGain;
+    controllerConfig.adaptiveUtilizationGain = adaptiveUtilizationGain;
+    controllerConfig.adaptiveRelaxation = adaptiveRelaxation;
     controllerConfig.activePowerW = activePowerW;
     controllerConfig.sleepPowerW = sleepPowerW;
 
@@ -464,6 +498,9 @@ main(int argc, char* argv[])
     summaryOut << "policy,traffic_profile,seed,run,enbs,ues,shift_ues,sim_time_s,"
                << "offered_load_mbps,base_offered_load_mbps,burst_extra_load_mbps,"
                << "burst_rate_multiplier,shift_start_s,shift_stop_s,burst_duration_s,"
+               << "uncertainty_scale,adaptive_min_uncertainty_scale,"
+               << "adaptive_max_uncertainty_scale,adaptive_load_shock_gain,"
+               << "adaptive_utilization_gain,adaptive_relaxation,"
                << "throughput_mbps,tx_packets,rx_packets,tx_bytes,rx_bytes,loss_ratio,"
                << "mean_delay_ms,energy_j,all_on_energy_j,energy_saving_pct,"
                << "active_cell_seconds,unsafe_sleep_actions,handover_requests,sla_violation\n";
@@ -473,7 +510,10 @@ main(int argc, char* argv[])
                << "," << offeredLoadMbps << "," << baseOfferedLoadMbps << ","
                << burstExtraLoadMbps << "," << burstRateMultiplier << ","
                << shiftStart.GetSeconds() << "," << shiftStop.GetSeconds() << ","
-               << burstDurationSeconds << "," << throughputMbps << "," << txPackets << ","
+               << burstDurationSeconds << "," << uncertaintyScale << ","
+               << adaptiveMinUncertaintyScale << "," << adaptiveMaxUncertaintyScale << ","
+               << adaptiveLoadShockGain << "," << adaptiveUtilizationGain << ","
+               << adaptiveRelaxation << "," << throughputMbps << "," << txPackets << ","
                << rxPackets << "," << txBytes << "," << rxBytes << "," << lossRatio << ","
                << meanDelayMs << "," << controller.GetEnergyJ() << "," << allOnEnergyJ << ","
                << energySavingPct << "," << controller.GetActiveCellSeconds() << ","

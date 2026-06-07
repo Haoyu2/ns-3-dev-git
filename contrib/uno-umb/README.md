@@ -13,12 +13,15 @@ First baselines:
 - `threshold`: sleep cells with low served UE count.
 - `aggressive`: sleep more cells using a looser UE-count threshold.
 - `twin`: sleep low-load cells only when the digital-twin risk estimate is safe.
+- `adaptive-twin`: twin control with online uncertainty scaling from load shock
+  and utilization stress.
 
 Current contribution track:
 
 - Per-UE offered-load accounting in the controller.
 - Distribution-shift traffic profiles: `steady`, `center-burst`, `edge-burst`,
   `right-edge-burst`, and `global-burst`.
+- Online uncertainty adaptation for risk-aware sleep decisions.
 - Time-averaged offered-load reporting so shifted and steady runs can be compared
   without mixing scenario definitions.
 
@@ -36,6 +39,7 @@ Useful first runs:
 ./ns3 run "uno-umb-dt-energy --policy=threshold"
 ./ns3 run "uno-umb-dt-energy --policy=aggressive"
 ./ns3 run "uno-umb-dt-energy --policy=twin"
+./ns3 run "uno-umb-dt-energy --policy=adaptive-twin"
 ./ns3 run "uno-umb-dt-energy --policy=twin --trafficProfile=center-burst --burstRateMultiplier=3.0"
 ```
 
@@ -49,6 +53,15 @@ Pilot sweep:
 
 ```bash
 python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py
+```
+
+Adaptive calibration sweep:
+
+```bash
+python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
+  --policies=twin,adaptive-twin \
+  --traffic-profiles=center-burst \
+  --uncertainty-scales=0.5,0.7,1.0
 ```
 
 Fuller sweep:

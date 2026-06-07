@@ -41,8 +41,13 @@ ParseCellSleepPolicy(const std::string& policy)
     {
         return CellSleepPolicyMode::Twin;
     }
+    if (policy == "adaptive-twin")
+    {
+        return CellSleepPolicyMode::AdaptiveTwin;
+    }
     NS_ABORT_MSG("Unknown policy '" << policy
-                                   << "'. Use all-on, threshold, aggressive, or twin.");
+                                   << "'. Use all-on, threshold, aggressive, twin, or "
+                                      "adaptive-twin.");
 }
 
 static double
@@ -66,7 +71,8 @@ CellSleepController::CellSleepController(const CellSleepControllerConfig& config
       m_eventCsv(eventCsv),
       m_active(config.enbNodes.GetN(), true),
       m_preferredEnb(config.preferredEnb),
-      m_ueRatesMbps(config.ueRateMbpsByUe)
+      m_ueRatesMbps(config.ueRateMbpsByUe),
+      m_effectiveUncertaintyScale(config.uncertaintyScale)
 {
     if (m_preferredEnb.empty())
     {
@@ -80,6 +86,13 @@ CellSleepController::CellSleepController(const CellSleepControllerConfig& config
                     "preferredEnb must be empty or match the number of UEs");
     NS_ABORT_MSG_IF(m_ueRatesMbps.size() != m_config.servingEnb.size(),
                     "ueRateMbpsByUe must be empty or match the number of UEs");
+    NS_ABORT_MSG_IF(m_config.cellCapacityMbps <= 0.0, "cellCapacityMbps must be positive");
+    NS_ABORT_MSG_IF(m_config.adaptiveMinUncertaintyScale <= 0.0,
+                    "adaptiveMinUncertaintyScale must be positive");
+    NS_ABORT_MSG_IF(m_config.adaptiveMaxUncertaintyScale < m_config.adaptiveMinUncertaintyScale,
+                    "adaptiveMaxUncertaintyScale must be at least adaptiveMinUncertaintyScale");
+    NS_ABORT_MSG_IF(m_config.adaptiveRelaxation < 0.0 || m_config.adaptiveRelaxation > 1.0,
+                    "adaptiveRelaxation must be in [0, 1]");
 }
 
 void
@@ -141,7 +154,8 @@ std::string
 CellSleepController::GetEventCsvHeader()
 {
     return "time_s,policy,cell,action,reason,was_active,load_mbps,max_utilization,"
-           "min_coverage_margin_db,utilization_uncertainty,coverage_uncertainty_db,twin_safe";
+           "min_coverage_margin_db,utilization_uncertainty,coverage_uncertainty_db,"
+           "uncertainty_scale,load_shock,max_observed_utilization,twin_safe";
 }
 
 void
@@ -151,6 +165,7 @@ CellSleepController::RunPolicy()
     AccumulateEnergy(now);
 
     std::vector<double> loadMbps = ComputeLoadMbps();
+    UpdateAdaptiveUncertaintyScale(loadMbps);
     std::vector<bool> desiredActive(m_active.size(), true);
 
     if (m_config.policy != CellSleepPolicyMode::AllOn)
@@ -173,7 +188,7 @@ CellSleepController::RunPolicy()
         {
             const CellSleepDecisionEstimate estimate =
                 EstimateSleepRisk(cell, desiredActive, loadMbps);
-            if (!estimate.safe && m_config.policy != CellSleepPolicyMode::Twin)
+            if (!estimate.safe && !UsesRiskGate())
             {
                 ++m_unsafeSleepActions;
             }
@@ -203,6 +218,69 @@ CellSleepController::RunPolicy()
     }
 }
 
+bool
+CellSleepController::UsesRiskGate() const
+{
+    return m_config.policy == CellSleepPolicyMode::Twin ||
+           m_config.policy == CellSleepPolicyMode::AdaptiveTwin;
+}
+
+void
+CellSleepController::UpdateAdaptiveUncertaintyScale(const std::vector<double>& loadMbps)
+{
+    double maxUtilization = 0.0;
+    double loadShock = 0.0;
+    for (uint32_t cell = 0; cell < loadMbps.size(); ++cell)
+    {
+        maxUtilization = std::max(maxUtilization, loadMbps[cell] / m_config.cellCapacityMbps);
+        if (m_previousLoadMbps.size() == loadMbps.size())
+        {
+            loadShock = std::max(loadShock,
+                                 std::abs(loadMbps[cell] - m_previousLoadMbps[cell]) /
+                                     m_config.cellCapacityMbps);
+        }
+    }
+
+    m_lastLoadShock = loadShock;
+    m_lastMaxUtilization = maxUtilization;
+    m_previousLoadMbps = loadMbps;
+
+    if (m_config.policy != CellSleepPolicyMode::AdaptiveTwin)
+    {
+        m_effectiveUncertaintyScale = m_config.uncertaintyScale;
+        return;
+    }
+
+    const double utilizationStress =
+        std::max(maxUtilization / std::max(m_config.utilizationLimit, 1e-9) - 0.70, 0.0);
+    const double targetScale =
+        std::clamp(m_config.uncertaintyScale + m_config.adaptiveLoadShockGain * loadShock +
+                       m_config.adaptiveUtilizationGain * utilizationStress,
+                   m_config.adaptiveMinUncertaintyScale,
+                   m_config.adaptiveMaxUncertaintyScale);
+
+    if (targetScale > m_effectiveUncertaintyScale)
+    {
+        m_effectiveUncertaintyScale = targetScale;
+    }
+    else
+    {
+        m_effectiveUncertaintyScale =
+            m_effectiveUncertaintyScale -
+            m_config.adaptiveRelaxation * (m_effectiveUncertaintyScale - targetScale);
+    }
+    m_effectiveUncertaintyScale =
+        std::clamp(m_effectiveUncertaintyScale,
+                   m_config.adaptiveMinUncertaintyScale,
+                   m_config.adaptiveMaxUncertaintyScale);
+}
+
+double
+CellSleepController::GetEffectiveUncertaintyScale() const
+{
+    return m_effectiveUncertaintyScale;
+}
+
 void
 CellSleepController::ApplySleepSelection(const std::vector<double>& loadMbps,
                                          std::vector<bool>& desiredActive)
@@ -229,7 +307,7 @@ CellSleepController::ApplySleepSelection(const std::vector<double>& loadMbps,
             continue;
         }
 
-        if (m_config.policy == CellSleepPolicyMode::Twin)
+        if (UsesRiskGate())
         {
             CellSleepDecisionEstimate estimate = EstimateSleepRisk(cell, desiredActive, loadMbps);
             if (!estimate.safe)
@@ -307,10 +385,10 @@ CellSleepController::EstimateSleepRisk(uint32_t candidateCell,
     }
 
     estimate.utilizationUncertainty =
-        m_config.uncertaintyScale * (0.04 + 0.10 * estimate.maxUtilization +
-                                     0.06 * (farthestOffloadMeters / 1000.0));
+        GetEffectiveUncertaintyScale() * (0.04 + 0.10 * estimate.maxUtilization +
+                                          0.06 * (farthestOffloadMeters / 1000.0));
     estimate.coverageUncertaintyDb =
-        m_config.uncertaintyScale * (1.0 + 2.0 * (farthestOffloadMeters / 1000.0));
+        GetEffectiveUncertaintyScale() * (1.0 + 2.0 * (farthestOffloadMeters / 1000.0));
     estimate.safe =
         (estimate.maxUtilization + estimate.utilizationUncertainty <= m_config.utilizationLimit) &&
         (estimate.minCoverageMarginDb - estimate.coverageUncertaintyDb >=
@@ -437,6 +515,8 @@ CellSleepController::WriteDecision(uint32_t cell,
                 << (m_active[cell] ? 1 : 0) << "," << loadMbps << ","
                 << estimate.maxUtilization << "," << estimate.minCoverageMarginDb << ","
                 << estimate.utilizationUncertainty << "," << estimate.coverageUncertaintyDb << ","
+                << GetEffectiveUncertaintyScale() << "," << m_lastLoadShock << ","
+                << m_lastMaxUtilization << ","
                 << (estimate.safe ? 1 : 0) << "\n";
 }
 

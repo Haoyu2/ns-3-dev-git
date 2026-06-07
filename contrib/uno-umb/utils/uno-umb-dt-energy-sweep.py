@@ -22,13 +22,18 @@ def run_command(command, cwd):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--policies", default="all-on,threshold,aggressive,twin")
+    parser.add_argument("--policies", default="all-on,threshold,aggressive,twin,adaptive-twin")
     parser.add_argument("--seeds", default="1")
     parser.add_argument("--runs", default="1")
     parser.add_argument("--ue-counts", default="16")
     parser.add_argument("--ue-rates", default="1.0")
     parser.add_argument("--spacings", default="500")
     parser.add_argument("--uncertainty-scales", default="1.0")
+    parser.add_argument("--adaptive-min-uncertainty-scales", default="0.5")
+    parser.add_argument("--adaptive-max-uncertainty-scales", default="2.5")
+    parser.add_argument("--adaptive-load-shock-gains", default="1.5")
+    parser.add_argument("--adaptive-utilization-gains", default="1.0")
+    parser.add_argument("--adaptive-relaxations", default="0.25")
     parser.add_argument("--traffic-profiles", default="steady,center-burst")
     parser.add_argument("--burst-rate-multipliers", default="3.0")
     parser.add_argument("--shift-start", default="3.0s")
@@ -51,6 +56,11 @@ def main():
     ue_rates = split_csv(args.ue_rates, float)
     spacings = split_csv(args.spacings, float)
     uncertainty_scales = split_csv(args.uncertainty_scales, float)
+    adaptive_min_uncertainty_scales = split_csv(args.adaptive_min_uncertainty_scales, float)
+    adaptive_max_uncertainty_scales = split_csv(args.adaptive_max_uncertainty_scales, float)
+    adaptive_load_shock_gains = split_csv(args.adaptive_load_shock_gains, float)
+    adaptive_utilization_gains = split_csv(args.adaptive_utilization_gains, float)
+    adaptive_relaxations = split_csv(args.adaptive_relaxations, float)
     traffic_profiles = split_csv(args.traffic_profiles)
     burst_rate_multipliers = split_csv(args.burst_rate_multipliers, float)
 
@@ -72,6 +82,11 @@ def main():
             ue_rates,
             spacings,
             uncertainty_scales,
+            adaptive_min_uncertainty_scales,
+            adaptive_max_uncertainty_scales,
+            adaptive_load_shock_gains,
+            adaptive_utilization_gains,
+            adaptive_relaxations,
             traffic_profiles,
             burst_rate_multipliers,
         )
@@ -85,6 +100,11 @@ def main():
         ue_rate,
         spacing,
         uncertainty_scale,
+        adaptive_min_uncertainty_scale,
+        adaptive_max_uncertainty_scale,
+        adaptive_load_shock_gain,
+        adaptive_utilization_gain,
+        adaptive_relaxation,
         traffic_profile,
         burst_rate_multiplier,
     ) in enumerate(combinations, start=1):
@@ -99,6 +119,11 @@ def main():
             ue_rate,
             spacing,
             uncertainty_scale,
+            adaptive_min_uncertainty_scale,
+            adaptive_max_uncertainty_scale,
+            adaptive_load_shock_gain,
+            adaptive_utilization_gain,
+            adaptive_relaxation,
             traffic_profile,
             effective_burst_rate_multiplier,
         )
@@ -109,7 +134,10 @@ def main():
         run_id = (
             f"{index:04d}-{policy}-seed{seed}-run{run}-ues{ues}-rate{ue_rate}"
             f"-spacing{spacing}-unc{uncertainty_scale}-{traffic_profile}"
-            f"-burst{effective_burst_rate_multiplier}"
+            f"-burst{effective_burst_rate_multiplier}-amin{adaptive_min_uncertainty_scale}"
+            f"-amax{adaptive_max_uncertainty_scale}"
+            f"-ashock{adaptive_load_shock_gain}-autil{adaptive_utilization_gain}"
+            f"-arelax{adaptive_relaxation}"
         ).replace(".", "p")
         summary_csv = out_dir / f"{run_id}-summary.csv"
         event_csv = out_dir / f"{run_id}-events.csv"
@@ -122,6 +150,11 @@ def main():
             f"--ueRateMbps={ue_rate} "
             f"--enbSpacingMeters={spacing} "
             f"--uncertaintyScale={uncertainty_scale} "
+            f"--adaptiveMinUncertaintyScale={adaptive_min_uncertainty_scale} "
+            f"--adaptiveMaxUncertaintyScale={adaptive_max_uncertainty_scale} "
+            f"--adaptiveLoadShockGain={adaptive_load_shock_gain} "
+            f"--adaptiveUtilizationGain={adaptive_utilization_gain} "
+            f"--adaptiveRelaxation={adaptive_relaxation} "
             f"--trafficProfile={traffic_profile} "
             f"--burstRateMultiplier={effective_burst_rate_multiplier} "
             f"--shiftStart={args.shift_start} "
@@ -140,6 +173,11 @@ def main():
                 "ue_rate_mbps": ue_rate,
                 "enb_spacing_m": spacing,
                 "uncertainty_scale": uncertainty_scale,
+                "adaptive_min_uncertainty_scale": adaptive_min_uncertainty_scale,
+                "adaptive_max_uncertainty_scale": adaptive_max_uncertainty_scale,
+                "adaptive_load_shock_gain": adaptive_load_shock_gain,
+                "adaptive_utilization_gain": adaptive_utilization_gain,
+                "adaptive_relaxation": adaptive_relaxation,
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,
                 "command": ["./ns3", "run", program],
@@ -157,6 +195,11 @@ def main():
                 "ue_rate_mbps": ue_rate,
                 "enb_spacing_m": spacing,
                 "uncertainty_scale": uncertainty_scale,
+                "adaptive_min_uncertainty_scale": adaptive_min_uncertainty_scale,
+                "adaptive_max_uncertainty_scale": adaptive_max_uncertainty_scale,
+                "adaptive_load_shock_gain": adaptive_load_shock_gain,
+                "adaptive_utilization_gain": adaptive_utilization_gain,
+                "adaptive_relaxation": adaptive_relaxation,
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,
                 "shift_start": args.shift_start,

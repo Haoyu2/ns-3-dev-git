@@ -51,11 +51,17 @@ CellSleepPolicyTestCase::DoRun()
     NS_TEST_ASSERT_MSG_EQ(static_cast<int>(ParseCellSleepPolicy("twin")),
                           static_cast<int>(CellSleepPolicyMode::Twin),
                           "twin policy parsing failed");
+    NS_TEST_ASSERT_MSG_EQ(static_cast<int>(ParseCellSleepPolicy("adaptive-twin")),
+                          static_cast<int>(CellSleepPolicyMode::AdaptiveTwin),
+                          "adaptive-twin policy parsing failed");
 
     const std::string header = CellSleepController::GetEventCsvHeader();
     NS_TEST_ASSERT_MSG_NE(header.find("twin_safe"),
                           std::string::npos,
                           "event CSV header should include twin_safe");
+    NS_TEST_ASSERT_MSG_NE(header.find("uncertainty_scale"),
+                          std::string::npos,
+                          "event CSV header should include uncertainty_scale");
 
     NodeContainer enbs;
     enbs.Create(1);

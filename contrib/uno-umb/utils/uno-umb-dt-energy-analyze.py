@@ -29,6 +29,7 @@ POLICY_COLORS = {
     "threshold": "#2563eb",
     "aggressive": "#dc2626",
     "twin": "#059669",
+    "adaptive-twin": "#7c3aed",
 }
 
 
@@ -144,6 +145,11 @@ def write_scenario_summary(rows, output_dir):
         "ue_rate_mbps",
         "enb_spacing_m",
         "uncertainty_scale",
+        "adaptive_min_uncertainty_scale",
+        "adaptive_max_uncertainty_scale",
+        "adaptive_load_shock_gain",
+        "adaptive_utilization_gain",
+        "adaptive_relaxation",
         "traffic_profile",
         "burst_rate_multiplier",
         "shift_start_s",
@@ -178,6 +184,11 @@ def write_pairwise_comparison(rows, output_dir):
         "ue_rate_mbps",
         "enb_spacing_m",
         "uncertainty_scale",
+        "adaptive_min_uncertainty_scale",
+        "adaptive_max_uncertainty_scale",
+        "adaptive_load_shock_gain",
+        "adaptive_utilization_gain",
+        "adaptive_relaxation",
         "traffic_profile",
         "burst_rate_multiplier",
         "shift_start_s",
@@ -199,6 +210,11 @@ def write_pairwise_comparison(rows, output_dir):
         "loss_twin_minus_aggressive",
         "sla_violation_twin_minus_aggressive",
         "unsafe_twin_minus_aggressive",
+        "energy_saving_adaptive_minus_twin",
+        "safe_energy_saving_adaptive_minus_twin",
+        "loss_adaptive_minus_twin",
+        "sla_violation_adaptive_minus_twin",
+        "unsafe_adaptive_minus_twin",
     ]
     comparison_rows = []
     for key, policies in sorted(by_scenario.items()):
@@ -227,6 +243,25 @@ def write_pairwise_comparison(rows, output_dir):
             row[f"unsafe_twin_minus_{baseline}"] = (
                 as_float(twin, "unsafe_sleep_actions")
                 - as_float(policies[baseline], "unsafe_sleep_actions")
+            )
+        if "adaptive-twin" in policies:
+            adaptive = policies["adaptive-twin"]
+            row["energy_saving_adaptive_minus_twin"] = (
+                as_float(adaptive, "energy_saving_pct") - as_float(twin, "energy_saving_pct")
+            )
+            row["safe_energy_saving_adaptive_minus_twin"] = (
+                metric_value(adaptive, "safe_energy_saving_pct")
+                - metric_value(twin, "safe_energy_saving_pct")
+            )
+            row["loss_adaptive_minus_twin"] = (
+                as_float(adaptive, "loss_ratio") - as_float(twin, "loss_ratio")
+            )
+            row["sla_violation_adaptive_minus_twin"] = (
+                as_float(adaptive, "sla_violation") - as_float(twin, "sla_violation")
+            )
+            row["unsafe_adaptive_minus_twin"] = (
+                as_float(adaptive, "unsafe_sleep_actions") -
+                as_float(twin, "unsafe_sleep_actions")
             )
         comparison_rows.append(row)
 

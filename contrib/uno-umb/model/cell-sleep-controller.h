@@ -37,7 +37,8 @@ enum class CellSleepPolicyMode
     AllOn,      //!< Keep every cell active.
     Threshold,  //!< Sleep low-load cells using a UE-count threshold.
     Aggressive, //!< Sleep more cells using a looser UE-count threshold.
-    Twin        //!< Sleep only when the risk estimate is safe.
+    Twin,       //!< Sleep only when the risk estimate is safe.
+    AdaptiveTwin //!< Twin policy with online uncertainty adaptation.
 };
 
 /**
@@ -85,6 +86,11 @@ struct CellSleepControllerConfig
     double requiredCoverageMarginDb{3.0};                  //!< Required coverage margin.
     double utilizationLimit{0.78};                         //!< Utilization safety limit.
     double uncertaintyScale{1.0};                          //!< Risk uncertainty multiplier.
+    double adaptiveMinUncertaintyScale{0.5};               //!< Minimum adaptive multiplier.
+    double adaptiveMaxUncertaintyScale{2.5};               //!< Maximum adaptive multiplier.
+    double adaptiveLoadShockGain{1.5};                     //!< Load-shock adaptation gain.
+    double adaptiveUtilizationGain{1.0};                   //!< Utilization adaptation gain.
+    double adaptiveRelaxation{0.25};                       //!< Stable-period relaxation rate.
     double activePowerW{180.0};                            //!< Active eNB power draw.
     double sleepPowerW{25.0};                              //!< Sleeping eNB power draw.
 };
@@ -183,6 +189,25 @@ class CellSleepController
     void ApplySleepSelection(const std::vector<double>& loadMbps, std::vector<bool>& desiredActive);
 
     /**
+     * @return Whether the configured policy gates sleep actions through risk estimates.
+     */
+    bool UsesRiskGate() const;
+
+    /**
+     * Update the adaptive uncertainty multiplier from current load stress.
+     *
+     * @param loadMbps Current estimated load per cell.
+     */
+    void UpdateAdaptiveUncertaintyScale(const std::vector<double>& loadMbps);
+
+    /**
+     * Compute the scale used by risk estimates in the current interval.
+     *
+     * @return Effective uncertainty scale.
+     */
+    double GetEffectiveUncertaintyScale() const;
+
+    /**
      * Compute load from the current serving-cell map.
      *
      * @return Estimated load per cell in Mb/s.
@@ -263,6 +288,10 @@ class CellSleepController
     std::vector<bool> m_active;         //!< Current active state per eNB.
     std::vector<uint32_t> m_preferredEnb; //!< Preferred eNB per UE.
     std::vector<double> m_ueRatesMbps;  //!< Current offered load per UE.
+    std::vector<double> m_previousLoadMbps; //!< Previous interval load estimate.
+    double m_effectiveUncertaintyScale{1.0}; //!< Current uncertainty scale.
+    double m_lastLoadShock{0.0};             //!< Last normalized load shock.
+    double m_lastMaxUtilization{0.0};        //!< Last observed max utilization.
     double m_lastEnergyUpdateSeconds{0.0}; //!< Last energy integration time.
     double m_energyJ{0.0};                  //!< Integrated energy use.
     double m_activeCellSeconds{0.0};        //!< Integrated active cell-seconds.

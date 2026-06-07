@@ -14,6 +14,14 @@ First baselines:
 - `aggressive`: sleep more cells using a looser UE-count threshold.
 - `twin`: sleep low-load cells only when the digital-twin risk estimate is safe.
 
+Current contribution track:
+
+- Per-UE offered-load accounting in the controller.
+- Distribution-shift traffic profiles: `steady`, `center-burst`, `edge-burst`,
+  `right-edge-burst`, and `global-burst`.
+- Time-averaged offered-load reporting so shifted and steady runs can be compared
+  without mixing scenario definitions.
+
 Build:
 
 ```bash
@@ -28,6 +36,7 @@ Useful first runs:
 ./ns3 run "uno-umb-dt-energy --policy=threshold"
 ./ns3 run "uno-umb-dt-energy --policy=aggressive"
 ./ns3 run "uno-umb-dt-energy --policy=twin"
+./ns3 run "uno-umb-dt-energy --policy=twin --trafficProfile=center-burst --burstRateMultiplier=3.0"
 ```
 
 CSV outputs:
@@ -49,7 +58,9 @@ python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
   --ue-counts=12,16,20 \
   --ue-rates=0.8,1.0,1.2 \
   --spacings=400,500,650 \
-  --uncertainty-scales=0.5,1.0,1.5
+  --uncertainty-scales=0.5,1.0,1.5 \
+  --traffic-profiles=steady,center-burst,edge-burst,global-burst \
+  --burst-rate-multipliers=2.0,3.0,4.0
 ```
 
 Analyze an aggregate CSV:
@@ -60,6 +71,6 @@ python3 contrib/uno-umb/utils/uno-umb-dt-energy-analyze.py results/uno-umb-dt-en
 
 Near-term extension list:
 
-- Add mobility and traffic bursts to create distribution shifts.
+- Add mobility and inter-cell correlated bursts to create harder distribution shifts.
 - Replace the analytical energy constants with a calibrated LTE/NR base-station power model.
 - Port the same controller interface to 5G-LENA once the LTE prototype establishes the claim.

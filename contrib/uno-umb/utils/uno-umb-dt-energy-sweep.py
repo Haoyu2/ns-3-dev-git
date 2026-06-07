@@ -26,6 +26,10 @@ def main():
     parser.add_argument("--ue-rates", default="1.0")
     parser.add_argument("--spacings", default="500")
     parser.add_argument("--uncertainty-scales", default="1.0")
+    parser.add_argument("--traffic-profiles", default="steady,center-burst")
+    parser.add_argument("--burst-rate-multipliers", default="3.0")
+    parser.add_argument("--shift-start", default="3.0s")
+    parser.add_argument("--shift-stop", default="10.0s")
     parser.add_argument("--sim-time", default="12.0s")
     parser.add_argument("--output-dir", default="")
     parser.add_argument("--skip-build", action="store_true")
@@ -43,20 +47,57 @@ def main():
     ue_rates = split_csv(args.ue_rates, float)
     spacings = split_csv(args.spacings, float)
     uncertainty_scales = split_csv(args.uncertainty_scales, float)
+    traffic_profiles = split_csv(args.traffic_profiles)
+    burst_rate_multipliers = split_csv(args.burst_rate_multipliers, float)
 
     if not args.skip_build:
         run_command(["./ns3", "build", "uno-umb-dt-energy"], repo)
 
     aggregate_rows = []
     combinations = list(
-        itertools.product(policies, seeds, ue_counts, ue_rates, spacings, uncertainty_scales)
+        itertools.product(
+            policies,
+            seeds,
+            ue_counts,
+            ue_rates,
+            spacings,
+            uncertainty_scales,
+            traffic_profiles,
+            burst_rate_multipliers,
+        )
     )
-    for index, (policy, seed, ues, ue_rate, spacing, uncertainty_scale) in enumerate(
-        combinations, start=1
-    ):
+    seen_scenarios = set()
+    for index, (
+        policy,
+        seed,
+        ues,
+        ue_rate,
+        spacing,
+        uncertainty_scale,
+        traffic_profile,
+        burst_rate_multiplier,
+    ) in enumerate(combinations, start=1):
+        effective_burst_rate_multiplier = (
+            1.0 if traffic_profile == "steady" else burst_rate_multiplier
+        )
+        scenario_key = (
+            policy,
+            seed,
+            ues,
+            ue_rate,
+            spacing,
+            uncertainty_scale,
+            traffic_profile,
+            effective_burst_rate_multiplier,
+        )
+        if scenario_key in seen_scenarios:
+            continue
+        seen_scenarios.add(scenario_key)
+
         run_id = (
             f"{index:04d}-{policy}-seed{seed}-ues{ues}-rate{ue_rate}"
-            f"-spacing{spacing}-unc{uncertainty_scale}"
+            f"-spacing{spacing}-unc{uncertainty_scale}-{traffic_profile}"
+            f"-burst{effective_burst_rate_multiplier}"
         ).replace(".", "p")
         summary_csv = out_dir / f"{run_id}-summary.csv"
         event_csv = out_dir / f"{run_id}-events.csv"
@@ -68,6 +109,10 @@ def main():
             f"--ueRateMbps={ue_rate} "
             f"--enbSpacingMeters={spacing} "
             f"--uncertaintyScale={uncertainty_scale} "
+            f"--trafficProfile={traffic_profile} "
+            f"--burstRateMultiplier={effective_burst_rate_multiplier} "
+            f"--shiftStart={args.shift_start} "
+            f"--shiftStop={args.shift_stop} "
             f"--simTime={args.sim_time} "
             f"--summaryCsv={summary_csv} "
             f"--eventCsv={event_csv}"
@@ -82,6 +127,10 @@ def main():
                 "ue_rate_mbps": ue_rate,
                 "enb_spacing_m": spacing,
                 "uncertainty_scale": uncertainty_scale,
+                "traffic_profile": traffic_profile,
+                "burst_rate_multiplier": effective_burst_rate_multiplier,
+                "shift_start": args.shift_start,
+                "shift_stop": args.shift_stop,
                 "summary_csv": str(summary_csv),
                 "event_csv": str(event_csv),
             }

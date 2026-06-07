@@ -64,8 +64,22 @@ CellSleepController::CellSleepController(const CellSleepControllerConfig& config
                                          std::ofstream* eventCsv)
     : m_config(config),
       m_eventCsv(eventCsv),
-      m_active(config.enbNodes.GetN(), true)
+      m_active(config.enbNodes.GetN(), true),
+      m_preferredEnb(config.preferredEnb),
+      m_ueRatesMbps(config.ueRateMbpsByUe)
 {
+    if (m_preferredEnb.empty())
+    {
+        m_preferredEnb = m_config.servingEnb;
+    }
+    if (m_ueRatesMbps.empty())
+    {
+        m_ueRatesMbps.assign(m_config.servingEnb.size(), m_config.ueRateMbps);
+    }
+    NS_ABORT_MSG_IF(m_preferredEnb.size() != m_config.servingEnb.size(),
+                    "preferredEnb must be empty or match the number of UEs");
+    NS_ABORT_MSG_IF(m_ueRatesMbps.size() != m_config.servingEnb.size(),
+                    "ueRateMbpsByUe must be empty or match the number of UEs");
 }
 
 void
@@ -104,6 +118,25 @@ CellSleepController::GetHandoverRequests() const
     return m_handoverRequests;
 }
 
+void
+CellSleepController::SetUeRateMbps(uint32_t ueIndex, double rateMbps)
+{
+    NS_ABORT_MSG_IF(ueIndex >= m_ueRatesMbps.size(), "UE index is out of range");
+    NS_ABORT_MSG_IF(rateMbps < 0.0, "UE rate must be non-negative");
+    m_ueRatesMbps[ueIndex] = rateMbps;
+}
+
+double
+CellSleepController::GetTotalOfferedLoadMbps() const
+{
+    double total = 0.0;
+    for (double rate : m_ueRatesMbps)
+    {
+        total += rate;
+    }
+    return total;
+}
+
 std::string
 CellSleepController::GetEventCsvHeader()
 {
@@ -127,11 +160,14 @@ CellSleepController::RunPolicy()
 
     for (uint32_t cell = 0; cell < desiredActive.size(); ++cell)
     {
+        const double decisionLoadMbps = loadMbps[cell];
         if (desiredActive[cell] && !m_active[cell])
         {
             SetEnbTxPower(cell, m_config.activeTxPowerDbm);
             m_active[cell] = true;
-            WriteDecision(cell, "wake", "policy-selected-active", loadMbps[cell], {});
+            RestorePreferredCell(cell);
+            WriteDecision(cell, "wake", "policy-selected-active", decisionLoadMbps, {});
+            loadMbps = ComputeLoadMbps();
         }
         else if (!desiredActive[cell] && m_active[cell])
         {
@@ -148,14 +184,15 @@ CellSleepController::RunPolicy()
                                 cell,
                                 m_config.sleepTxPowerDbm);
             m_active[cell] = false;
-            WriteDecision(cell, "sleep", "policy-selected-sleep", loadMbps[cell], estimate);
+            WriteDecision(cell, "sleep", "policy-selected-sleep", decisionLoadMbps, estimate);
+            loadMbps = ComputeLoadMbps();
         }
         else
         {
             WriteDecision(cell,
                           desiredActive[cell] ? "keep-active" : "keep-sleep",
                           "no-state-change",
-                          loadMbps[cell],
+                          decisionLoadMbps,
                           EstimateSleepRisk(cell, desiredActive, loadMbps));
         }
     }
@@ -212,7 +249,7 @@ CellSleepController::ComputeLoadMbps() const
     std::vector<double> load(m_config.enbNodes.GetN(), 0.0);
     for (uint32_t u = 0; u < m_config.servingEnb.size(); ++u)
     {
-        load[m_config.servingEnb[u]] += m_config.ueRateMbps;
+        load[m_config.servingEnb[u]] += m_ueRatesMbps[u];
     }
     return load;
 }
@@ -246,8 +283,9 @@ CellSleepController::EstimateSleepRisk(uint32_t candidateCell,
             return estimate;
         }
 
-        loadAfter[target] += m_config.ueRateMbps;
-        const double distance = DistanceMeters(m_config.ueNodes.Get(u), m_config.enbNodes.Get(target));
+        loadAfter[target] += m_ueRatesMbps[u];
+        const double distance =
+            DistanceMeters(m_config.ueNodes.Get(u), m_config.enbNodes.Get(target));
         farthestOffloadMeters = std::max(farthestOffloadMeters, distance);
         const double rsrpDbm = EstimateRsrpDbm(m_config.activeTxPowerDbm, distance);
         estimate.minCoverageMarginDb =
@@ -294,7 +332,8 @@ CellSleepController::FindNearestActiveEnb(uint32_t ueIndex,
             continue;
         }
 
-        const double distance = DistanceMeters(m_config.ueNodes.Get(ueIndex), m_config.enbNodes.Get(cell));
+        const double distance =
+            DistanceMeters(m_config.ueNodes.Get(ueIndex), m_config.enbNodes.Get(cell));
         if (distance < bestDistance)
         {
             bestDistance = distance;
@@ -325,6 +364,31 @@ CellSleepController::OffloadCell(uint32_t sleepingCell, const std::vector<bool>&
                                             m_config.enbDevs.Get(sleepingCell),
                                             m_config.enbDevs.Get(target));
         m_config.servingEnb[u] = target;
+        ++m_handoverRequests;
+    }
+}
+
+void
+CellSleepController::RestorePreferredCell(uint32_t activeCell)
+{
+    for (uint32_t u = 0; u < m_config.servingEnb.size(); ++u)
+    {
+        if (m_preferredEnb[u] != activeCell || m_config.servingEnb[u] == activeCell)
+        {
+            continue;
+        }
+
+        const uint32_t source = m_config.servingEnb[u];
+        if (!m_active[source])
+        {
+            continue;
+        }
+
+        m_config.lteHelper->HandoverRequest(Simulator::Now() + MilliSeconds(10),
+                                            m_config.ueDevs.Get(u),
+                                            m_config.enbDevs.Get(source),
+                                            m_config.enbDevs.Get(activeCell));
+        m_config.servingEnb[u] = activeCell;
         ++m_handoverRequests;
     }
 }

@@ -69,6 +69,8 @@ struct CellSleepControllerConfig
     NetDeviceContainer enbDevs;                            //!< eNB LTE devices.
     NetDeviceContainer ueDevs;                             //!< UE LTE devices.
     std::vector<uint32_t> servingEnb;                      //!< Current serving eNB per UE.
+    std::vector<uint32_t> preferredEnb;                    //!< Preferred eNB per UE.
+    std::vector<double> ueRateMbpsByUe;                    //!< Offered load per UE.
     Time simTime{Seconds(0)};                              //!< Total simulation time.
     Time controlStart{Seconds(0)};                         //!< First decision time.
     Time controlInterval{Seconds(1)};                      //!< Decision interval.
@@ -149,6 +151,19 @@ class CellSleepController
     uint32_t GetHandoverRequests() const;
 
     /**
+     * Update one UE's offered-load estimate.
+     *
+     * @param ueIndex UE index.
+     * @param rateMbps Offered load in Mb/s.
+     */
+    void SetUeRateMbps(uint32_t ueIndex, double rateMbps);
+
+    /**
+     * @return Current aggregate offered-load estimate in Mb/s.
+     */
+    double GetTotalOfferedLoadMbps() const;
+
+    /**
      * @return CSV header for controller event logs.
      */
     static std::string GetEventCsvHeader();
@@ -207,6 +222,13 @@ class CellSleepController
     void OffloadCell(uint32_t sleepingCell, const std::vector<bool>& desiredActive);
 
     /**
+     * Move preferred UEs back to a newly active cell.
+     *
+     * @param activeCell Newly active cell.
+     */
+    void RestorePreferredCell(uint32_t activeCell);
+
+    /**
      * Set eNB transmit power.
      *
      * @param cell Cell index.
@@ -239,6 +261,8 @@ class CellSleepController
     CellSleepControllerConfig m_config; //!< Controller configuration.
     std::ofstream* m_eventCsv;          //!< Optional event CSV stream.
     std::vector<bool> m_active;         //!< Current active state per eNB.
+    std::vector<uint32_t> m_preferredEnb; //!< Preferred eNB per UE.
+    std::vector<double> m_ueRatesMbps;  //!< Current offered load per UE.
     double m_lastEnergyUpdateSeconds{0.0}; //!< Last energy integration time.
     double m_energyJ{0.0};                  //!< Integrated energy use.
     double m_activeCellSeconds{0.0};        //!< Integrated active cell-seconds.

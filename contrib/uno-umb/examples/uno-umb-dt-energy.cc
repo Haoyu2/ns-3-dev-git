@@ -58,6 +58,91 @@ BuildHomeCells(uint32_t numberOfUes, uint32_t numberOfEnbs, uint32_t lowLoadUes)
     return home;
 }
 
+static std::vector<uint32_t>
+GetTrafficShiftUes(const std::vector<uint32_t>& homeCells,
+                   const std::string& trafficProfile,
+                   uint32_t numberOfEnbs)
+{
+    std::vector<uint32_t> shiftedUes;
+    if (trafficProfile == "steady")
+    {
+        return shiftedUes;
+    }
+
+    if (trafficProfile == "global-burst")
+    {
+        shiftedUes.reserve(homeCells.size());
+        for (uint32_t u = 0; u < homeCells.size(); ++u)
+        {
+            shiftedUes.push_back(u);
+        }
+        return shiftedUes;
+    }
+
+    uint32_t targetCell = 0;
+    if (trafficProfile == "center-burst")
+    {
+        targetCell = numberOfEnbs / 2;
+    }
+    else if (trafficProfile == "edge-burst")
+    {
+        targetCell = 0;
+    }
+    else if (trafficProfile == "right-edge-burst")
+    {
+        targetCell = numberOfEnbs - 1;
+    }
+    else
+    {
+        NS_ABORT_MSG("Unknown trafficProfile '" << trafficProfile
+                                                << "'. Use steady, center-burst, edge-burst, "
+                                                   "right-edge-burst, or global-burst.");
+    }
+
+    for (uint32_t u = 0; u < homeCells.size(); ++u)
+    {
+        if (homeCells[u] == targetCell)
+        {
+            shiftedUes.push_back(u);
+        }
+    }
+    return shiftedUes;
+}
+
+static Time
+GetPacketInterval(uint32_t packetSizeBytes, double rateMbps)
+{
+    NS_ABORT_MSG_IF(rateMbps <= 0.0, "Flow rate must be positive.");
+    return Seconds((packetSizeBytes * 8.0) / (rateMbps * 1000000.0));
+}
+
+static void
+InstallDownlinkUdpFlow(Ptr<Node> remoteHost,
+                       Ptr<Node> ueNode,
+                       Ipv4Address ueAddress,
+                       uint16_t port,
+                       double rateMbps,
+                       uint32_t packetSizeBytes,
+                       ApplicationContainer& clientApps,
+                       ApplicationContainer& serverApps)
+{
+    PacketSinkHelper dlPacketSinkHelper("ns3::UdpSocketFactory",
+                                        InetSocketAddress(Ipv4Address::GetAny(), port));
+    serverApps.Add(dlPacketSinkHelper.Install(ueNode));
+
+    UdpClientHelper dlClient(ueAddress, port);
+    dlClient.SetAttribute("Interval", TimeValue(GetPacketInterval(packetSizeBytes, rateMbps)));
+    dlClient.SetAttribute("MaxPackets", UintegerValue(100000000));
+    dlClient.SetAttribute("PacketSize", UintegerValue(packetSizeBytes));
+    clientApps.Add(dlClient.Install(remoteHost));
+}
+
+static void
+SetControllerUeRate(CellSleepController* controller, uint32_t ueIndex, double rateMbps)
+{
+    controller->SetUeRateMbps(ueIndex, rateMbps);
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -89,6 +174,10 @@ main(int argc, char* argv[])
     Time controlStart = Seconds(2.0);
     Time controlInterval = Seconds(2.0);
     std::string policyName = "twin";
+    std::string trafficProfile = "steady";
+    Time shiftStart = Seconds(3.0);
+    Time shiftStop = Seconds(10.0);
+    double burstRateMultiplier = 3.0;
     std::string summaryCsv = "uno-umb-dt-energy-summary.csv";
     std::string eventCsv = "uno-umb-dt-energy-events.csv";
 
@@ -102,18 +191,33 @@ main(int argc, char* argv[])
     cmd.AddValue("appStart", "Application start time", appStart);
     cmd.AddValue("controlStart", "First control decision time", controlStart);
     cmd.AddValue("controlInterval", "Control decision interval", controlInterval);
+    cmd.AddValue("trafficProfile",
+                 "Traffic profile: steady, center-burst, edge-burst, right-edge-burst, or "
+                 "global-burst",
+                 trafficProfile);
+    cmd.AddValue("shiftStart", "Traffic-shift start time", shiftStart);
+    cmd.AddValue("shiftStop", "Traffic-shift stop time", shiftStop);
+    cmd.AddValue("burstRateMultiplier",
+                 "Multiplier for shifted-UE offered load",
+                 burstRateMultiplier);
     cmd.AddValue("enbSpacingMeters", "Distance between neighboring eNBs", enbSpacingMeters);
-    cmd.AddValue("ueClusterRadiusMeters", "Maximum UE offset from the home eNB", ueClusterRadiusMeters);
+    cmd.AddValue("ueClusterRadiusMeters",
+                 "Maximum UE offset from the home eNB",
+                 ueClusterRadiusMeters);
     cmd.AddValue("ueRateMbps", "Downlink UDP offered load per UE", ueRateMbps);
     cmd.AddValue("cellCapacityMbps", "Controller-side nominal cell capacity", cellCapacityMbps);
-    cmd.AddValue("sleepUeThreshold", "UE-count threshold for threshold and twin policies", sleepUeThreshold);
+    cmd.AddValue("sleepUeThreshold",
+                 "UE-count threshold for threshold and twin policies",
+                 sleepUeThreshold);
     cmd.AddValue("aggressiveSleepUeThreshold",
                  "UE-count threshold for aggressive policy",
                  aggressiveSleepUeThreshold);
     cmd.AddValue("activeTxPowerDbm", "eNB Tx power while active", activeTxPowerDbm);
     cmd.AddValue("sleepTxPowerDbm", "eNB Tx power while sleeping", sleepTxPowerDbm);
     cmd.AddValue("minReliableRsrpDbm", "Twin-side minimum reliable RSRP proxy", minReliableRsrpDbm);
-    cmd.AddValue("requiredCoverageMarginDb", "Twin-side coverage margin requirement", requiredCoverageMarginDb);
+    cmd.AddValue("requiredCoverageMarginDb",
+                 "Twin-side coverage margin requirement",
+                 requiredCoverageMarginDb);
     cmd.AddValue("utilizationLimit", "Twin-side maximum load plus uncertainty", utilizationLimit);
     cmd.AddValue("uncertaintyScale", "Multiplier for twin uncertainty", uncertaintyScale);
     cmd.AddValue("activePowerW", "Analytical active eNB power draw", activePowerW);
@@ -131,6 +235,8 @@ main(int argc, char* argv[])
     NS_ABORT_MSG_IF(numberOfUes == 0, "At least one UE is required.");
     NS_ABORT_MSG_IF(ueRateMbps <= 0.0, "ueRateMbps must be positive.");
     NS_ABORT_MSG_IF(controlStart <= appStart, "controlStart should be later than appStart.");
+    NS_ABORT_MSG_IF(shiftStop <= shiftStart, "shiftStop must be later than shiftStart.");
+    NS_ABORT_MSG_IF(burstRateMultiplier < 1.0, "burstRateMultiplier must be at least 1.0.");
 
     const CellSleepPolicyMode policy = ParseCellSleepPolicy(policyName);
 
@@ -203,7 +309,8 @@ main(int argc, char* argv[])
     NetDeviceContainer ueLteDevs = lteHelper->InstallUeDevice(ueNodes);
 
     internet.Install(ueNodes);
-    Ipv4InterfaceContainer ueIpIface = epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueLteDevs));
+    Ipv4InterfaceContainer ueIpIface =
+        epcHelper->AssignUeIpv4Address(NetDeviceContainer(ueLteDevs));
     for (uint32_t u = 0; u < ueNodes.GetN(); ++u)
     {
         Ptr<Ipv4StaticRouting> ueStaticRouting =
@@ -212,32 +319,52 @@ main(int argc, char* argv[])
     }
 
     std::vector<uint32_t> servingEnb = homeCells;
+    const std::vector<uint32_t> shiftedUes =
+        GetTrafficShiftUes(homeCells, trafficProfile, numberOfEnbs);
+    const bool burstEnabled = !shiftedUes.empty() && burstRateMultiplier > 1.0;
+    const double burstExtraRateMbps =
+        burstEnabled ? ueRateMbps * (burstRateMultiplier - 1.0) : 0.0;
+    std::vector<double> ueRatesMbps(numberOfUes, ueRateMbps);
     for (uint32_t u = 0; u < ueLteDevs.GetN(); ++u)
     {
         lteHelper->Attach(ueLteDevs.Get(u), enbLteDevs.Get(homeCells[u]));
     }
 
-    const Time packetInterval = Seconds((packetSizeBytes * 8.0) / (ueRateMbps * 1000000.0));
     uint16_t dlPort = 12000;
-    ApplicationContainer clientApps;
+    ApplicationContainer baseClientApps;
+    ApplicationContainer burstClientApps;
     ApplicationContainer serverApps;
     for (uint32_t u = 0; u < ueNodes.GetN(); ++u)
     {
-        ++dlPort;
-        PacketSinkHelper dlPacketSinkHelper("ns3::UdpSocketFactory",
-                                            InetSocketAddress(Ipv4Address::GetAny(), dlPort));
-        serverApps.Add(dlPacketSinkHelper.Install(ueNodes.Get(u)));
-
-        UdpClientHelper dlClient(ueIpIface.GetAddress(u), dlPort);
-        dlClient.SetAttribute("Interval", TimeValue(packetInterval));
-        dlClient.SetAttribute("MaxPackets", UintegerValue(100000000));
-        dlClient.SetAttribute("PacketSize", UintegerValue(packetSizeBytes));
-        clientApps.Add(dlClient.Install(remoteHost));
+        InstallDownlinkUdpFlow(remoteHost,
+                               ueNodes.Get(u),
+                               ueIpIface.GetAddress(u),
+                               ++dlPort,
+                               ueRateMbps,
+                               packetSizeBytes,
+                               baseClientApps,
+                               serverApps);
+    }
+    if (burstEnabled)
+    {
+        for (uint32_t ueIndex : shiftedUes)
+        {
+            InstallDownlinkUdpFlow(remoteHost,
+                                   ueNodes.Get(ueIndex),
+                                   ueIpIface.GetAddress(ueIndex),
+                                   ++dlPort,
+                                   burstExtraRateMbps,
+                                   packetSizeBytes,
+                                   burstClientApps,
+                                   serverApps);
+        }
     }
 
     serverApps.Start(appStart);
-    clientApps.Start(appStart + MilliSeconds(100));
-    clientApps.Stop(simTime - MilliSeconds(100));
+    baseClientApps.Start(appStart + MilliSeconds(100));
+    baseClientApps.Stop(simTime - MilliSeconds(100));
+    burstClientApps.Start(shiftStart);
+    burstClientApps.Stop(shiftStop);
 
     lteHelper->AddX2Interface(enbNodes);
 
@@ -253,10 +380,12 @@ main(int argc, char* argv[])
     controllerConfig.enbDevs = enbLteDevs;
     controllerConfig.ueDevs = ueLteDevs;
     controllerConfig.servingEnb = servingEnb;
+    controllerConfig.preferredEnb = homeCells;
     controllerConfig.simTime = simTime;
     controllerConfig.controlStart = controlStart;
     controllerConfig.controlInterval = controlInterval;
     controllerConfig.ueRateMbps = ueRateMbps;
+    controllerConfig.ueRateMbpsByUe = ueRatesMbps;
     controllerConfig.activeTxPowerDbm = activeTxPowerDbm;
     controllerConfig.sleepTxPowerDbm = sleepTxPowerDbm;
     controllerConfig.cellCapacityMbps = cellCapacityMbps;
@@ -271,6 +400,18 @@ main(int argc, char* argv[])
     controllerConfig.sleepPowerW = sleepPowerW;
 
     CellSleepController controller(controllerConfig, &eventOut);
+    if (burstEnabled)
+    {
+        for (uint32_t ueIndex : shiftedUes)
+        {
+            Simulator::Schedule(shiftStart,
+                                &SetControllerUeRate,
+                                &controller,
+                                ueIndex,
+                                ueRateMbps * burstRateMultiplier);
+            Simulator::Schedule(shiftStop, &SetControllerUeRate, &controller, ueIndex, ueRateMbps);
+        }
+    }
     controller.Start();
 
     FlowMonitorHelper flowmon;
@@ -296,9 +437,19 @@ main(int argc, char* argv[])
         delaySum += item.second.delaySum;
     }
 
+    const double measurementStartSeconds = (appStart + MilliSeconds(100)).GetSeconds();
+    const double measurementEndSeconds = (simTime - MilliSeconds(100)).GetSeconds();
     const double measurementSeconds =
-        std::max((simTime - (appStart + MilliSeconds(100))).GetSeconds(), 1.0);
-    const double offeredLoadMbps = numberOfUes * ueRateMbps;
+        std::max(measurementEndSeconds - measurementStartSeconds, 1.0);
+    const double clippedShiftStartSeconds =
+        std::max(shiftStart.GetSeconds(), measurementStartSeconds);
+    const double clippedShiftStopSeconds = std::min(shiftStop.GetSeconds(), measurementEndSeconds);
+    const double burstDurationSeconds =
+        burstEnabled ? std::max(clippedShiftStopSeconds - clippedShiftStartSeconds, 0.0) : 0.0;
+    const double baseOfferedLoadMbps = numberOfUes * ueRateMbps;
+    const double burstExtraLoadMbps = shiftedUes.size() * burstExtraRateMbps;
+    const double offeredLoadMbps =
+        baseOfferedLoadMbps + (burstExtraLoadMbps * burstDurationSeconds / measurementSeconds);
     const double throughputMbps = (rxBytes * 8.0) / (measurementSeconds * 1000000.0);
     const double lossRatio =
         (txPackets == 0) ? 0.0 : static_cast<double>(txPackets - rxPackets) / txPackets;
@@ -310,13 +461,19 @@ main(int argc, char* argv[])
         (throughputMbps < minGoodputRatio * offeredLoadMbps) || (meanDelayMs > delaySlaMs);
 
     std::ofstream summaryOut(summaryCsv);
-    summaryOut << "policy,seed,run,enbs,ues,sim_time_s,offered_load_mbps,throughput_mbps,"
-               << "tx_packets,rx_packets,tx_bytes,rx_bytes,loss_ratio,mean_delay_ms,"
-               << "energy_j,all_on_energy_j,energy_saving_pct,active_cell_seconds,"
-               << "unsafe_sleep_actions,handover_requests,sla_violation\n";
-    summaryOut << std::fixed << std::setprecision(6) << policyName << "," << seed << "," << run
-               << "," << numberOfEnbs << "," << numberOfUes << "," << simTime.GetSeconds()
-               << "," << offeredLoadMbps << "," << throughputMbps << "," << txPackets << ","
+    summaryOut << "policy,traffic_profile,seed,run,enbs,ues,shift_ues,sim_time_s,"
+               << "offered_load_mbps,base_offered_load_mbps,burst_extra_load_mbps,"
+               << "burst_rate_multiplier,shift_start_s,shift_stop_s,burst_duration_s,"
+               << "throughput_mbps,tx_packets,rx_packets,tx_bytes,rx_bytes,loss_ratio,"
+               << "mean_delay_ms,energy_j,all_on_energy_j,energy_saving_pct,"
+               << "active_cell_seconds,unsafe_sleep_actions,handover_requests,sla_violation\n";
+    summaryOut << std::fixed << std::setprecision(6) << policyName << "," << trafficProfile
+               << "," << seed << "," << run << "," << numberOfEnbs
+               << "," << numberOfUes << "," << shiftedUes.size() << "," << simTime.GetSeconds()
+               << "," << offeredLoadMbps << "," << baseOfferedLoadMbps << ","
+               << burstExtraLoadMbps << "," << burstRateMultiplier << ","
+               << shiftStart.GetSeconds() << "," << shiftStop.GetSeconds() << ","
+               << burstDurationSeconds << "," << throughputMbps << "," << txPackets << ","
                << rxPackets << "," << txBytes << "," << rxBytes << "," << lossRatio << ","
                << meanDelayMs << "," << controller.GetEnergyJ() << "," << allOnEnergyJ << ","
                << energySavingPct << "," << controller.GetActiveCellSeconds() << ","
@@ -324,6 +481,7 @@ main(int argc, char* argv[])
                << "," << (slaViolation ? 1 : 0) << "\n";
 
     std::cout << "policy=" << policyName << " throughputMbps=" << throughputMbps
+              << " trafficProfile=" << trafficProfile
               << " lossRatio=" << lossRatio << " meanDelayMs=" << meanDelayMs
               << " energySavingPct=" << energySavingPct
               << " unsafeSleepActions=" << controller.GetUnsafeSleepActions()

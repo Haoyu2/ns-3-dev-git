@@ -98,6 +98,10 @@ def write_pairwise_comparison(rows, output_dir):
         "ue_rate_mbps",
         "enb_spacing_m",
         "uncertainty_scale",
+        "traffic_profile",
+        "burst_rate_multiplier",
+        "shift_start_s",
+        "shift_stop_s",
     ]
     by_scenario = defaultdict(dict)
     for row in rows:

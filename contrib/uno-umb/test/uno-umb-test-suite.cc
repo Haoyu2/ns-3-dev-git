@@ -56,6 +56,24 @@ CellSleepPolicyTestCase::DoRun()
     NS_TEST_ASSERT_MSG_NE(header.find("twin_safe"),
                           std::string::npos,
                           "event CSV header should include twin_safe");
+
+    NodeContainer enbs;
+    enbs.Create(1);
+    CellSleepControllerConfig config;
+    config.enbNodes = enbs;
+    config.servingEnb = {0, 0};
+    config.ueRateMbpsByUe = {1.0, 2.5};
+    CellSleepController controller(config, nullptr);
+    NS_TEST_ASSERT_MSG_EQ_TOL(controller.GetTotalOfferedLoadMbps(),
+                              3.5,
+                              1e-9,
+                              "controller should sum per-UE offered load");
+
+    controller.SetUeRateMbps(1, 4.0);
+    NS_TEST_ASSERT_MSG_EQ_TOL(controller.GetTotalOfferedLoadMbps(),
+                              5.0,
+                              1e-9,
+                              "controller should update one UE offered load");
 }
 
 /**

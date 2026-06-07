@@ -19,6 +19,8 @@ The module currently provides:
 * A reusable ``CellSleepController`` model.
 * Four policy modes: all-on, threshold, aggressive, and twin.
 * An LTE/EPC example that writes summary and controller-event CSV files.
+* Distribution-shift traffic profiles for steady, center-cell burst, edge-cell
+  burst, right-edge burst, and global burst demand.
 * Python utilities for parameter sweeps and aggregate-result summaries.
 
 The current controller uses an analytical energy model and a simple RSRP proxy.
@@ -29,10 +31,11 @@ Design
 ------
 
 The controller periodically estimates per-cell load from the current UE serving
-map.  Low-load cells are candidate sleep cells.  Threshold policies apply the
-sleep decision directly.  The twin policy first estimates the post-sleep maximum
-active-cell utilization and minimum coverage margin, adds uncertainty margins,
-and sleeps a cell only when both safety checks pass.
+map and per-UE offered-load estimates.  Low-load cells are candidate sleep cells.
+Threshold policies apply the sleep decision directly.  The twin policy first
+estimates the post-sleep maximum active-cell utilization and minimum coverage
+margin, adds uncertainty margins, and sleeps a cell only when both safety checks
+pass.
 
 Sleeping a cell is modeled by requesting X2 handovers for served UEs and then
 reducing the eNB transmit power.  Energy is accounted analytically from active
@@ -48,6 +51,7 @@ Run one policy:
 .. code-block:: console
 
    ./ns3 run "uno-umb-dt-energy --policy=twin"
+   ./ns3 run "uno-umb-dt-energy --policy=twin --trafficProfile=center-burst --burstRateMultiplier=3.0"
 
 Run the four-policy pilot sweep:
 
@@ -84,7 +88,9 @@ Examples and Tests
 ------------------
 
 ``uno-umb-dt-energy`` compares all-on, threshold, aggressive, and twin
-cell-sleep policies in an LTE/EPC scenario and writes CSV summaries.
+cell-sleep policies in an LTE/EPC scenario and writes CSV summaries.  The
+example can also add a temporary demand burst to a selected subset of UEs so
+that policies are compared under distribution shift.
 
 The ``uno-umb`` unit test validates policy parsing and the controller event CSV
 header.

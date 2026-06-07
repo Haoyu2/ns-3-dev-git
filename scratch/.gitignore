@@ -5,6 +5,4 @@
 !nested-subdir/
 !subdir/
 !scratch-simulator.cc
-!uno-umb-dt-energy.cc
-!uno-umb-dt-energy-notes.md
 !CMakeLists.txt

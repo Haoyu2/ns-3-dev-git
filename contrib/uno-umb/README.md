@@ -14,6 +14,13 @@ First baselines:
 - `aggressive`: sleep more cells using a looser UE-count threshold.
 - `twin`: sleep low-load cells only when the digital-twin risk estimate is safe.
 
+Build:
+
+```bash
+./ns3 configure --enable-examples --enable-tests
+./ns3 build uno-umb-dt-energy uno-umb-test
+```
+
 Useful first runs:
 
 ```bash
@@ -31,13 +38,13 @@ CSV outputs:
 Pilot sweep:
 
 ```bash
-python3 utils/uno-umb-dt-energy-sweep.py
+python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py
 ```
 
 Fuller sweep:
 
 ```bash
-python3 utils/uno-umb-dt-energy-sweep.py \
+python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
   --seeds=1,2,3 \
   --ue-counts=12,16,20 \
   --ue-rates=0.8,1.0,1.2 \
@@ -48,7 +55,7 @@ python3 utils/uno-umb-dt-energy-sweep.py \
 Analyze an aggregate CSV:
 
 ```bash
-python3 utils/uno-umb-dt-energy-analyze.py results/uno-umb-dt-energy-*/aggregate.csv
+python3 contrib/uno-umb/utils/uno-umb-dt-energy-analyze.py results/uno-umb-dt-energy-*/aggregate.csv
 ```
 
 Near-term extension list:

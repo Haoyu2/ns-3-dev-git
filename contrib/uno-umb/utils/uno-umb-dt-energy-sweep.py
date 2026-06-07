@@ -31,7 +31,7 @@ def main():
     parser.add_argument("--skip-build", action="store_true")
     args = parser.parse_args()
 
-    repo = Path(__file__).resolve().parents[1]
+    repo = Path(__file__).resolve().parents[3]
     out_dir = Path(args.output_dir) if args.output_dir else repo / "results" / (
         "uno-umb-dt-energy-" + time.strftime("%Y%m%d-%H%M%S")
     )

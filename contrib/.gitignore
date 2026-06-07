@@ -3,3 +3,7 @@
 
 # Include specific files that should be tracked by Git
 !.gitignore
+!uno-umb/
+!uno-umb/**
+uno-umb/**/__pycache__/
+uno-umb/**/*.pyc

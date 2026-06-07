@@ -50,3 +50,6 @@ vcpkg/
 
 # Ignore local cache used by e.g. clangd
 .cache/
+
+# UNO-UMB experiment sweep outputs
+/results/uno-umb-dt-energy-*/

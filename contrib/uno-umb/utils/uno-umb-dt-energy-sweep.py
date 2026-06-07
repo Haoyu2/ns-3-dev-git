@@ -4,8 +4,10 @@
 import argparse
 import csv
 import itertools
+import json
 import subprocess
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -22,6 +24,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--policies", default="all-on,threshold,aggressive,twin")
     parser.add_argument("--seeds", default="1")
+    parser.add_argument("--runs", default="1")
     parser.add_argument("--ue-counts", default="16")
     parser.add_argument("--ue-rates", default="1.0")
     parser.add_argument("--spacings", default="500")
@@ -43,6 +46,7 @@ def main():
 
     policies = split_csv(args.policies)
     seeds = split_csv(args.seeds, int)
+    runs = split_csv(args.runs, int)
     ue_counts = split_csv(args.ue_counts, int)
     ue_rates = split_csv(args.ue_rates, float)
     spacings = split_csv(args.spacings, float)
@@ -54,10 +58,16 @@ def main():
         run_command(["./ns3", "build", "uno-umb-dt-energy"], repo)
 
     aggregate_rows = []
+    manifest = {
+        "started_utc": datetime.now(timezone.utc).isoformat(),
+        "arguments": vars(args),
+        "runs": [],
+    }
     combinations = list(
         itertools.product(
             policies,
             seeds,
+            runs,
             ue_counts,
             ue_rates,
             spacings,
@@ -70,6 +80,7 @@ def main():
     for index, (
         policy,
         seed,
+        run,
         ues,
         ue_rate,
         spacing,
@@ -83,6 +94,7 @@ def main():
         scenario_key = (
             policy,
             seed,
+            run,
             ues,
             ue_rate,
             spacing,
@@ -95,7 +107,7 @@ def main():
         seen_scenarios.add(scenario_key)
 
         run_id = (
-            f"{index:04d}-{policy}-seed{seed}-ues{ues}-rate{ue_rate}"
+            f"{index:04d}-{policy}-seed{seed}-run{run}-ues{ues}-rate{ue_rate}"
             f"-spacing{spacing}-unc{uncertainty_scale}-{traffic_profile}"
             f"-burst{effective_burst_rate_multiplier}"
         ).replace(".", "p")
@@ -105,6 +117,7 @@ def main():
             "uno-umb-dt-energy "
             f"--policy={policy} "
             f"--seed={seed} "
+            f"--run={run} "
             f"--numberOfUes={ues} "
             f"--ueRateMbps={ue_rate} "
             f"--enbSpacingMeters={spacing} "
@@ -116,6 +129,23 @@ def main():
             f"--simTime={args.sim_time} "
             f"--summaryCsv={summary_csv} "
             f"--eventCsv={event_csv}"
+        )
+        manifest["runs"].append(
+            {
+                "run_id": run_id,
+                "policy": policy,
+                "seed": seed,
+                "run": run,
+                "number_of_ues": ues,
+                "ue_rate_mbps": ue_rate,
+                "enb_spacing_m": spacing,
+                "uncertainty_scale": uncertainty_scale,
+                "traffic_profile": traffic_profile,
+                "burst_rate_multiplier": effective_burst_rate_multiplier,
+                "command": ["./ns3", "run", program],
+                "summary_csv": str(summary_csv),
+                "event_csv": str(event_csv),
+            }
         )
         run_command(["./ns3", "run", program], repo)
 
@@ -143,7 +173,14 @@ def main():
             writer.writeheader()
             writer.writerows(aggregate_rows)
 
+    manifest["completed_utc"] = datetime.now(timezone.utc).isoformat()
+    manifest["aggregate_csv"] = str(out_dir / "aggregate.csv")
+    with (out_dir / "manifest.json").open("w") as handle:
+        json.dump(manifest, handle, indent=2)
+        handle.write("\n")
+
     print(f"Wrote {out_dir / 'aggregate.csv'}")
+    print(f"Wrote {out_dir / 'manifest.json'}")
 
 
 if __name__ == "__main__":

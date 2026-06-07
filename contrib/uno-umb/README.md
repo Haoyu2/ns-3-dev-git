@@ -43,6 +43,7 @@ CSV outputs:
 
 - `uno-umb-dt-energy-summary.csv`: one-line run summary for paper plots.
 - `uno-umb-dt-energy-events.csv`: controller decisions over time.
+- Sweep directories also include `aggregate.csv` and `manifest.json`.
 
 Pilot sweep:
 
@@ -55,6 +56,7 @@ Fuller sweep:
 ```bash
 python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
   --seeds=1,2,3 \
+  --runs=1,2,3 \
   --ue-counts=12,16,20 \
   --ue-rates=0.8,1.0,1.2 \
   --spacings=400,500,650 \
@@ -68,6 +70,13 @@ Analyze an aggregate CSV:
 ```bash
 python3 contrib/uno-umb/utils/uno-umb-dt-energy-analyze.py results/uno-umb-dt-energy-*/aggregate.csv
 ```
+
+Analysis outputs:
+
+- `policy-summary.csv` and `.md`: policy-level means and standard deviations.
+- `scenario-summary.csv` and `.md`: scenario-level policy summaries.
+- `pairwise-comparison.csv`: twin deltas against threshold and aggressive baselines.
+- `energy-risk.svg`: dependency-free energy/loss scatter plot.
 
 Near-term extension list:
 

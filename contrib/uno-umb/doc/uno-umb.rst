@@ -21,7 +21,8 @@ The module currently provides:
 * An LTE/EPC example that writes summary and controller-event CSV files.
 * Distribution-shift traffic profiles for steady, center-cell burst, edge-cell
   burst, right-edge burst, and global burst demand.
-* Python utilities for parameter sweeps and aggregate-result summaries.
+* Python utilities for parameter sweeps, manifests, aggregate summaries, and a
+  dependency-free energy-risk SVG figure.
 
 The current controller uses an analytical energy model and a simple RSRP proxy.
 It is intended as a reproducible research scaffold, not as a calibrated base
@@ -51,7 +52,8 @@ Run one policy:
 .. code-block:: console
 
    ./ns3 run "uno-umb-dt-energy --policy=twin"
-   ./ns3 run "uno-umb-dt-energy --policy=twin --trafficProfile=center-burst --burstRateMultiplier=3.0"
+   ./ns3 run "uno-umb-dt-energy --policy=twin --trafficProfile=center-burst \
+     --burstRateMultiplier=3.0"
 
 Run the four-policy pilot sweep:
 
@@ -63,7 +65,13 @@ Summarize aggregate sweep output:
 
 .. code-block:: console
 
-   python3 contrib/uno-umb/utils/uno-umb-dt-energy-analyze.py results/uno-umb-dt-energy-*/aggregate.csv
+   python3 contrib/uno-umb/utils/uno-umb-dt-energy-analyze.py \
+     results/uno-umb-dt-energy-*/aggregate.csv
+
+The analyzer writes policy and scenario summaries, pairwise comparisons against
+the twin policy, and an ``energy-risk.svg`` scatter plot.  It also reports a
+safe energy-saving metric that counts energy saving only for runs with no SLA
+violation and no unsafe sleep action.
 
 Helpers
 ~~~~~~~

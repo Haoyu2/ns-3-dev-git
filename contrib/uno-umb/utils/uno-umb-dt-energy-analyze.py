@@ -33,6 +33,16 @@ FEASIBILITY_METRICS = [
     "throughput_delta_vs_all_on",
     "controller_induced_sla_violation",
 ]
+ENVELOPE_METRICS = [
+    "throughput_mbps",
+    "loss_ratio",
+    "energy_saving_pct",
+    "safe_run",
+    "safe_energy_saving_pct",
+    "excess_loss_vs_all_on",
+    "throughput_delta_vs_all_on",
+    "controller_induced_sla_violation",
+]
 
 POLICY_COLORS = {
     "all-on": "#4b5563",
@@ -149,7 +159,7 @@ def write_summary_md(summary_rows, fields, output_md):
             cells = []
             for field in fields:
                 value = row[field]
-                if field == "runs":
+                if field == "runs" or field.endswith("_runs"):
                     cells.append(str(value))
                 else:
                     cells.append(
@@ -393,7 +403,11 @@ def write_feasibility_comparison(rows, output_dir):
         comparison_rows,
         output_dir,
     )
-    return comparison_csv, feasible_summary_csv, feasible_summary_md
+    envelope_csv, envelope_md = write_feasibility_envelope_summary(
+        comparison_rows,
+        output_dir,
+    )
+    return comparison_csv, feasible_summary_csv, feasible_summary_md, envelope_csv, envelope_md
 
 
 def write_feasible_policy_summary(feasibility_rows, output_dir):
@@ -442,6 +456,92 @@ def write_feasible_policy_summary(feasibility_rows, output_dir):
             "excess_loss_vs_all_on_mean",
             "controller_induced_sla_violation_mean",
             "safe_run_mean",
+        ],
+        summary_md,
+    )
+    return summary_csv, summary_md
+
+
+def write_feasibility_envelope_summary(feasibility_rows, output_dir):
+    envelope_fields = [
+        "traffic_profile",
+        "burst_rate_multiplier",
+        "ues",
+        "ue_rate_mbps",
+        "enb_spacing_m",
+    ]
+    controller_fields = [
+        "policy",
+        "uncertainty_scale",
+        "adaptive_latent_load_threshold",
+        "adaptive_wake_relief_threshold",
+    ]
+
+    all_on_by_envelope = {}
+    controller_groups = defaultdict(list)
+    for row in feasibility_rows:
+        envelope_key = tuple(row.get(field, "") for field in envelope_fields)
+        all_on_key = envelope_key + tuple(row.get(field, "") for field in ["seed", "run"])
+        all_on_by_envelope.setdefault(envelope_key, {})
+        all_on_by_envelope[envelope_key].setdefault(all_on_key, row)
+
+        controller_key = envelope_key + tuple(row.get(field, "") for field in controller_fields)
+        controller_groups[controller_key].append(row)
+
+    summary_rows = []
+    for key, group_rows in sorted(controller_groups.items()):
+        envelope_key = key[: len(envelope_fields)]
+        all_on_rows = list(all_on_by_envelope[envelope_key].values())
+        feasible_rows = [row for row in group_rows if as_float(row, "all_on_feasible") > 0.5]
+
+        summary = dict(zip(envelope_fields + controller_fields, key))
+        summary["all_on_runs"] = len(all_on_rows)
+        summary["all_on_feasible_rate"] = mean(
+            [as_float(row, "all_on_feasible") for row in all_on_rows]
+        )
+        summary["all_on_loss_ratio_mean"] = mean(
+            [as_float(row, "all_on_loss_ratio") for row in all_on_rows]
+        )
+        summary["feasible_controller_runs"] = len(feasible_rows)
+
+        for metric in ENVELOPE_METRICS:
+            values = [feasibility_metric_value(row, metric) for row in feasible_rows]
+            summary[f"{metric}_on_feasible_mean"] = mean(values)
+            summary[f"{metric}_on_feasible_stdev"] = stdev(values)
+        summary_rows.append(summary)
+
+    fields = (
+        envelope_fields
+        + controller_fields
+        + [
+            "all_on_runs",
+            "all_on_feasible_rate",
+            "all_on_loss_ratio_mean",
+            "feasible_controller_runs",
+        ]
+    )
+    for metric in ENVELOPE_METRICS:
+        fields.extend([f"{metric}_on_feasible_mean", f"{metric}_on_feasible_stdev"])
+
+    summary_csv = output_dir / "feasibility-envelope-summary.csv"
+    with summary_csv.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(summary_rows)
+
+    summary_md = output_dir / "feasibility-envelope-summary.md"
+    write_summary_md(
+        summary_rows,
+        envelope_fields
+        + controller_fields
+        + [
+            "all_on_runs",
+            "all_on_feasible_rate",
+            "feasible_controller_runs",
+            "safe_run_on_feasible_mean",
+            "safe_energy_saving_pct_on_feasible_mean",
+            "energy_saving_pct_on_feasible_mean",
+            "controller_induced_sla_violation_on_feasible_mean",
         ],
         summary_md,
     )
@@ -569,7 +669,13 @@ def main():
     summary_csv, summary_md, policy_summary_rows = write_policy_summary(rows, output_dir)
     scenario_csv, scenario_md = write_scenario_summary(rows, output_dir)
     comparison_csv = write_pairwise_comparison(rows, output_dir)
-    feasibility_csv, feasible_summary_csv, feasible_summary_md = write_feasibility_comparison(
+    (
+        feasibility_csv,
+        feasible_summary_csv,
+        feasible_summary_md,
+        envelope_csv,
+        envelope_md,
+    ) = write_feasibility_comparison(
         rows,
         output_dir,
     )
@@ -583,6 +689,8 @@ def main():
     print(f"Wrote {feasibility_csv}")
     print(f"Wrote {feasible_summary_csv}")
     print(f"Wrote {feasible_summary_md}")
+    print(f"Wrote {envelope_csv}")
+    print(f"Wrote {envelope_md}")
     print(f"Wrote {svg_path}")
 
 

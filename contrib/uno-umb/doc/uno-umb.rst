@@ -100,6 +100,11 @@ When all-on reference rows are included, the analyzer also writes
 violations from workloads that violate the SLA even with all cells active.  It
 also writes ``feasible-policy-summary.csv`` and ``feasible-policy-summary.md``
 for policy summaries restricted to workloads that are feasible under all-on.
+For burst-profile sweeps, it additionally writes
+``feasibility-envelope-summary.csv`` and
+``feasibility-envelope-summary.md``.  These files group results by traffic
+profile and burst multiplier so that overload regimes are separated from
+controller-induced SLA violations.
 
 Helpers
 ~~~~~~~

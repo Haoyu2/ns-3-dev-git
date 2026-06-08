@@ -94,12 +94,16 @@ Analysis outputs:
 - `feasibility-comparison.csv`: controller deltas against all-on references.
 - `feasible-policy-summary.csv` and `.md`: controller metrics only on workloads
   that are feasible with all cells active.
+- `feasibility-envelope-summary.csv` and `.md`: burst-profile/rate feasibility
+  envelope with controller metrics restricted to all-on-feasible rows.
 - `energy-risk.svg`: dependency-free energy/loss scatter plot.
 
 Experiment notes:
 
 - `experiments/latent-wakeup-ablation.md`: replicated center-burst ablation for
   latent preferred-cell demand wakeup.
+- `experiments/feasibility-envelope-pilot.md`: pilot burst-profile/rate envelope
+  for separating feasible control regimes from overload regimes.
 
 Near-term extension list:
 

@@ -88,6 +88,8 @@ CellSleepController::CellSleepController(const CellSleepControllerConfig& config
       m_active(config.enbNodes.GetN(), true),
       m_preferredEnb(config.preferredEnb),
       m_ueRatesMbps(config.ueRateMbpsByUe),
+      m_lastHandoverRequestSeconds(config.servingEnb.size(), -1.0e9),
+      m_restoreRetryPending(config.enbNodes.GetN(), false),
       m_effectiveUncertaintyScale(config.uncertaintyScale)
 {
     if (m_preferredEnb.empty())
@@ -118,7 +120,7 @@ CellSleepController::CellSleepController(const CellSleepControllerConfig& config
 void
 CellSleepController::Start()
 {
-    Simulator::Schedule(m_config.controlStart, &CellSleepController::RunPolicy, this);
+    Simulator::Schedule(m_config.controlStart, &CellSleepController::RunScheduledPolicy, this);
 }
 
 void
@@ -157,6 +159,7 @@ CellSleepController::SetUeRateMbps(uint32_t ueIndex, double rateMbps)
     NS_ABORT_MSG_IF(ueIndex >= m_ueRatesMbps.size(), "UE index is out of range");
     NS_ABORT_MSG_IF(rateMbps < 0.0, "UE rate must be non-negative");
     m_ueRatesMbps[ueIndex] = rateMbps;
+    ScheduleDemandReevaluation();
 }
 
 double
@@ -180,9 +183,40 @@ CellSleepController::GetEventCsvHeader()
 }
 
 void
-CellSleepController::RunPolicy()
+CellSleepController::RunScheduledPolicy()
+{
+    RunPolicy(true);
+}
+
+void
+CellSleepController::RunDemandTriggeredPolicy()
+{
+    m_demandReevaluationPending = false;
+    RunPolicy(false);
+}
+
+void
+CellSleepController::ScheduleDemandReevaluation()
+{
+    if (!m_config.reevaluateOnDemandChange || m_demandReevaluationPending ||
+        Simulator::Now() < m_config.controlStart || Simulator::Now() >= m_config.simTime)
+    {
+        return;
+    }
+
+    m_demandReevaluationPending = true;
+    Simulator::ScheduleNow(&CellSleepController::RunDemandTriggeredPolicy, this);
+}
+
+void
+CellSleepController::RunPolicy(bool scheduleNext)
 {
     const double now = Simulator::Now().GetSeconds();
+    if (std::abs(now - m_lastPolicyRunSeconds) < 1e-9)
+    {
+        return;
+    }
+    m_lastPolicyRunSeconds = now;
     AccumulateEnergy(now);
 
     std::vector<double> loadMbps = ComputeLoadMbps();
@@ -215,7 +249,16 @@ CellSleepController::RunPolicy()
             {
                 ++m_unsafeSleepActions;
             }
-            OffloadCell(cell, desiredActive);
+            if (!OffloadCell(cell, desiredActive))
+            {
+                desiredActive[cell] = true;
+                WriteDecision(cell,
+                              "keep-active",
+                              "handover-guard",
+                              decisionLoadMbps,
+                              estimate);
+                continue;
+            }
             Simulator::Schedule(MilliSeconds(80),
                                 &CellSleepController::SetEnbTxPower,
                                 this,
@@ -235,9 +278,11 @@ CellSleepController::RunPolicy()
         }
     }
 
-    if (Simulator::Now() + m_config.controlInterval < m_config.simTime)
+    if (scheduleNext && Simulator::Now() + m_config.controlInterval < m_config.simTime)
     {
-        Simulator::Schedule(m_config.controlInterval, &CellSleepController::RunPolicy, this);
+        Simulator::Schedule(m_config.controlInterval,
+                            &CellSleepController::RunScheduledPolicy,
+                            this);
     }
 }
 
@@ -425,7 +470,7 @@ CellSleepController::ShouldWakeForLatentDemand(
     const double preferredLoadMbps = ComputePreferredLoadMbps(cell);
     const double latentLoadMbps = std::max(preferredLoadMbps - currentLoadMbps[cell], 0.0);
     const double latentUes = latentLoadMbps / std::max(m_config.ueRateMbps, 1e-9);
-    if (latentUes <= m_config.adaptiveLatentLoadThreshold)
+    if (latentUes < m_config.adaptiveLatentLoadThreshold)
     {
         return false;
     }
@@ -526,9 +571,10 @@ CellSleepController::FindNearestActiveEnb(uint32_t ueIndex,
     return bestCell;
 }
 
-void
+bool
 CellSleepController::OffloadCell(uint32_t sleepingCell, const std::vector<bool>& desiredActive)
 {
+    std::vector<std::pair<uint32_t, uint32_t>> moves;
     for (uint32_t u = 0; u < m_config.servingEnb.size(); ++u)
     {
         if (m_config.servingEnb[u] != sleepingCell)
@@ -539,21 +585,27 @@ CellSleepController::OffloadCell(uint32_t sleepingCell, const std::vector<bool>&
         const uint32_t target = FindNearestActiveEnb(u, desiredActive, sleepingCell);
         if (target == sleepingCell)
         {
-            continue;
+            return false;
         }
-
-        m_config.lteHelper->HandoverRequest(Simulator::Now() + MilliSeconds(10),
-                                            m_config.ueDevs.Get(u),
-                                            m_config.enbDevs.Get(sleepingCell),
-                                            m_config.enbDevs.Get(target));
-        m_config.servingEnb[u] = target;
-        ++m_handoverRequests;
+        if (!CanRequestHandover(u))
+        {
+            return false;
+        }
+        moves.emplace_back(u, target);
     }
+
+    for (const auto& move : moves)
+    {
+        RequestHandover(move.first, sleepingCell, move.second);
+    }
+    return true;
 }
 
 void
 CellSleepController::RestorePreferredCell(uint32_t activeCell)
 {
+    Time retryDelay = Seconds(0);
+    bool retryNeeded = false;
     for (uint32_t u = 0; u < m_config.servingEnb.size(); ++u)
     {
         if (m_preferredEnb[u] != activeCell || m_config.servingEnb[u] == activeCell)
@@ -566,14 +618,80 @@ CellSleepController::RestorePreferredCell(uint32_t activeCell)
         {
             continue;
         }
+        if (!CanRequestHandover(u))
+        {
+            retryNeeded = true;
+            retryDelay = std::max(retryDelay, GetHandoverWait(u));
+            continue;
+        }
 
-        m_config.lteHelper->HandoverRequest(Simulator::Now() + MilliSeconds(10),
-                                            m_config.ueDevs.Get(u),
-                                            m_config.enbDevs.Get(source),
-                                            m_config.enbDevs.Get(activeCell));
-        m_config.servingEnb[u] = activeCell;
-        ++m_handoverRequests;
+        RequestHandover(u, source, activeCell);
     }
+
+    if (retryNeeded)
+    {
+        ScheduleRestoreRetry(activeCell, retryDelay + MilliSeconds(10));
+    }
+}
+
+void
+CellSleepController::RunRestoreRetry(uint32_t activeCell)
+{
+    m_restoreRetryPending[activeCell] = false;
+    if (m_active[activeCell])
+    {
+        RestorePreferredCell(activeCell);
+    }
+}
+
+void
+CellSleepController::ScheduleRestoreRetry(uint32_t activeCell, Time delay)
+{
+    if (activeCell >= m_restoreRetryPending.size() || m_restoreRetryPending[activeCell])
+    {
+        return;
+    }
+
+    m_restoreRetryPending[activeCell] = true;
+    Simulator::Schedule(std::max(delay, MilliSeconds(10)),
+                        &CellSleepController::RunRestoreRetry,
+                        this,
+                        activeCell);
+}
+
+bool
+CellSleepController::CanRequestHandover(uint32_t ueIndex) const
+{
+    return GetHandoverWait(ueIndex) <= Seconds(0);
+}
+
+Time
+CellSleepController::GetHandoverWait(uint32_t ueIndex) const
+{
+    if (m_config.handoverGuardTime <= Seconds(0))
+    {
+        return Seconds(0);
+    }
+    const double elapsed = Simulator::Now().GetSeconds() - m_lastHandoverRequestSeconds[ueIndex];
+    return m_config.handoverGuardTime - Seconds(std::max(elapsed, 0.0));
+}
+
+bool
+CellSleepController::RequestHandover(uint32_t ueIndex, uint32_t source, uint32_t target)
+{
+    if (!CanRequestHandover(ueIndex))
+    {
+        return false;
+    }
+
+    m_config.lteHelper->HandoverRequest(Simulator::Now() + MilliSeconds(10),
+                                        m_config.ueDevs.Get(ueIndex),
+                                        m_config.enbDevs.Get(source),
+                                        m_config.enbDevs.Get(target));
+    m_lastHandoverRequestSeconds[ueIndex] = Simulator::Now().GetSeconds();
+    m_config.servingEnb[ueIndex] = target;
+    ++m_handoverRequests;
+    return true;
 }
 
 void

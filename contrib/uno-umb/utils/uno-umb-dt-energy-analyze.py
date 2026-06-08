@@ -17,6 +17,7 @@ BASE_METRICS = [
     "unsafe_sleep_actions",
     "handover_requests",
     "sla_violation",
+    "simulation_failure",
 ]
 DERIVED_METRICS = [
     "safe_run",
@@ -32,6 +33,7 @@ FEASIBILITY_METRICS = [
     "excess_loss_vs_all_on",
     "throughput_delta_vs_all_on",
     "controller_induced_sla_violation",
+    "simulation_failure",
 ]
 ENVELOPE_METRICS = [
     "throughput_mbps",
@@ -42,6 +44,7 @@ ENVELOPE_METRICS = [
     "excess_loss_vs_all_on",
     "throughput_delta_vs_all_on",
     "controller_induced_sla_violation",
+    "simulation_failure",
 ]
 
 POLICY_COLORS = {
@@ -57,11 +60,18 @@ def as_float(row, field):
     return float(row[field])
 
 
+def is_failed_run(row):
+    return row.get("run_status", "ok") not in {"", "ok"}
+
+
 def metric_value(row, field):
+    if field == "simulation_failure":
+        return 1.0 if is_failed_run(row) else 0.0
     if field == "safe_run":
         safe = (
             as_float(row, "sla_violation") < 0.5
             and as_float(row, "unsafe_sleep_actions") < 0.5
+            and metric_value(row, "simulation_failure") < 0.5
         )
         return 1.0 if safe else 0.0
     if field == "safe_energy_saving_pct":
@@ -70,8 +80,15 @@ def metric_value(row, field):
 
 
 def feasibility_metric_value(row, field):
+    if field == "simulation_failure":
+        return 1.0 if is_failed_run(row) else 0.0
     if field == "safe_run":
-        return 1.0 if as_float(row, "sla_violation") < 0.5 else 0.0
+        return (
+            1.0
+            if as_float(row, "sla_violation") < 0.5
+            and feasibility_metric_value(row, "simulation_failure") < 0.5
+            else 0.0
+        )
     if field == "safe_energy_saving_pct":
         if feasibility_metric_value(row, "safe_run"):
             return as_float(row, "energy_saving_pct")
@@ -98,6 +115,20 @@ def format_number(value):
     return f"{value:.4f}"
 
 
+def scenario_key(row, fields):
+    key = []
+    for field in fields:
+        value = row.get(field, "")
+        if field in {"traffic_profile", "policy"}:
+            key.append(value)
+            continue
+        try:
+            key.append(f"{float(value):.9g}")
+        except ValueError:
+            key.append(value)
+    return tuple(key)
+
+
 def write_policy_summary(rows, output_dir):
     summary_rows = summarize_rows(rows, ["policy"])
     summary_csv = output_dir / "policy-summary.csv"
@@ -115,11 +146,52 @@ def write_policy_summary(rows, output_dir):
             "safe_energy_saving_pct_mean",
             "unsafe_sleep_actions_mean",
             "sla_violation_mean",
+            "simulation_failure_mean",
             "safe_run_mean",
         ],
         summary_md,
     )
     return summary_csv, summary_md, summary_rows
+
+
+def write_run_status_summary(rows, output_dir):
+    group_fields = [
+        "policy",
+        "traffic_profile",
+        "burst_rate_multiplier",
+        "uncertainty_scale",
+        "adaptive_latent_load_threshold",
+        "adaptive_wake_relief_threshold",
+    ]
+    grouped = defaultdict(list)
+    for row in rows:
+        key = tuple(row.get(field, "") for field in group_fields)
+        grouped[key].append(row)
+
+    summary_rows = []
+    for key, group_rows in sorted(grouped.items()):
+        failed = sum(1 for row in group_rows if is_failed_run(row))
+        total = len(group_rows)
+        summary_rows.append(
+            {
+                **dict(zip(group_fields, key)),
+                "runs": total,
+                "completed_runs": total - failed,
+                "failed_runs": failed,
+                "failure_rate": failed / total if total else 0.0,
+            }
+        )
+
+    fields = group_fields + ["runs", "completed_runs", "failed_runs", "failure_rate"]
+    summary_csv = output_dir / "run-status-summary.csv"
+    with summary_csv.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(summary_rows)
+
+    summary_md = output_dir / "run-status-summary.md"
+    write_summary_md(summary_rows, fields, summary_md)
+    return summary_csv, summary_md
 
 
 def summarize_rows(rows, group_fields):
@@ -201,6 +273,7 @@ def write_scenario_summary(rows, output_dir):
             "loss_ratio_mean",
             "unsafe_sleep_actions_mean",
             "sla_violation_mean",
+            "simulation_failure_mean",
             "safe_run_mean",
         ],
         summary_md,
@@ -325,11 +398,13 @@ def write_feasibility_comparison(rows, output_dir):
     for row in rows:
         if row["policy"] != "all-on":
             continue
-        key = tuple(row.get(field, "") for field in scenario_fields)
+        key = scenario_key(row, scenario_fields)
         all_on_rows.setdefault(key, row)
 
     comparison_fields = scenario_fields + [
         "policy",
+        "run_status",
+        "return_code",
         "uncertainty_scale",
         "adaptive_min_uncertainty_scale",
         "adaptive_max_uncertainty_scale",
@@ -350,12 +425,14 @@ def write_feasibility_comparison(rows, output_dir):
         "excess_loss_vs_all_on",
         "throughput_delta_vs_all_on",
         "controller_induced_sla_violation",
+        "simulation_failure",
+        "run_log",
     ]
     comparison_rows = []
     for row in rows:
         if row["policy"] == "all-on":
             continue
-        key = tuple(row.get(field, "") for field in scenario_fields)
+        key = scenario_key(row, scenario_fields)
         all_on = all_on_rows.get(key)
         if not all_on:
             continue
@@ -366,6 +443,8 @@ def write_feasibility_comparison(rows, output_dir):
             {
                 **dict(zip(scenario_fields, key)),
                 "policy": row["policy"],
+                "run_status": row.get("run_status", "ok"),
+                "return_code": row.get("return_code", ""),
                 "uncertainty_scale": row.get("uncertainty_scale", ""),
                 "adaptive_min_uncertainty_scale": row.get("adaptive_min_uncertainty_scale", ""),
                 "adaptive_max_uncertainty_scale": row.get("adaptive_max_uncertainty_scale", ""),
@@ -390,6 +469,8 @@ def write_feasibility_comparison(rows, output_dir):
                 "controller_induced_sla_violation": 1.0
                 if controller_sla_violation > 0.5 and all_on_sla_violation < 0.5
                 else 0.0,
+                "simulation_failure": 1.0 if is_failed_run(row) else 0.0,
+                "run_log": row.get("run_log", ""),
             }
         )
 
@@ -455,6 +536,7 @@ def write_feasible_policy_summary(feasibility_rows, output_dir):
             "loss_ratio_mean",
             "excess_loss_vs_all_on_mean",
             "controller_induced_sla_violation_mean",
+            "simulation_failure_mean",
             "safe_run_mean",
         ],
         summary_md,
@@ -542,6 +624,7 @@ def write_feasibility_envelope_summary(feasibility_rows, output_dir):
             "safe_energy_saving_pct_on_feasible_mean",
             "energy_saving_pct_on_feasible_mean",
             "controller_induced_sla_violation_on_feasible_mean",
+            "simulation_failure_on_feasible_mean",
         ],
         summary_md,
     )
@@ -666,6 +749,7 @@ def main():
     if not rows:
         raise SystemExit("No rows found in aggregate CSV")
 
+    run_status_csv, run_status_md = write_run_status_summary(rows, output_dir)
     summary_csv, summary_md, policy_summary_rows = write_policy_summary(rows, output_dir)
     scenario_csv, scenario_md = write_scenario_summary(rows, output_dir)
     comparison_csv = write_pairwise_comparison(rows, output_dir)
@@ -681,6 +765,8 @@ def main():
     )
     svg_path = write_energy_risk_svg(policy_summary_rows, output_dir)
 
+    print(f"Wrote {run_status_csv}")
+    print(f"Wrote {run_status_md}")
     print(f"Wrote {summary_csv}")
     print(f"Wrote {summary_md}")
     print(f"Wrote {scenario_csv}")

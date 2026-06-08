@@ -93,8 +93,10 @@ struct CellSleepControllerConfig
     double adaptiveLoadShockGain{1.5};                     //!< Load-shock adaptation gain.
     double adaptiveUtilizationGain{1.0};                   //!< Utilization adaptation gain.
     double adaptiveRelaxation{0.25};                       //!< Stable-period relaxation rate.
-    double adaptiveLatentLoadThreshold{2.0};               //!< UE-equivalent latent load threshold.
+    double adaptiveLatentLoadThreshold{4.0};               //!< UE-equivalent latent load threshold.
     double adaptiveWakeReliefThreshold{0.08};              //!< Minimum peak utilization relief.
+    bool reevaluateOnDemandChange{true};                   //!< Re-run policy after load changes.
+    Time handoverGuardTime{Seconds(1.25)};                 //!< Minimum time between UE handovers.
     double activePowerW{180.0};                            //!< Active eNB power draw.
     double sleepPowerW{25.0};                              //!< Sleeping eNB power draw.
 };
@@ -181,8 +183,25 @@ class CellSleepController
   private:
     /**
      * Evaluate the configured policy and apply state changes.
+     *
+     * @param scheduleNext Whether to schedule the next periodic decision.
      */
-    void RunPolicy();
+    void RunPolicy(bool scheduleNext);
+
+    /**
+     * Run a periodic policy decision.
+     */
+    void RunScheduledPolicy();
+
+    /**
+     * Run an event-triggered policy decision after a demand change.
+     */
+    void RunDemandTriggeredPolicy();
+
+    /**
+     * Schedule an event-triggered policy decision when enabled.
+     */
+    void ScheduleDemandReevaluation();
 
     /**
      * Select cells to sleep under the current policy.
@@ -275,8 +294,9 @@ class CellSleepController
      *
      * @param sleepingCell Cell being moved to sleep state.
      * @param desiredActive Desired active-state vector.
+     * @return True when all served UEs could be offloaded.
      */
-    void OffloadCell(uint32_t sleepingCell, const std::vector<bool>& desiredActive);
+    bool OffloadCell(uint32_t sleepingCell, const std::vector<bool>& desiredActive);
 
     /**
      * Move preferred UEs back to a newly active cell.
@@ -284,6 +304,45 @@ class CellSleepController
      * @param activeCell Newly active cell.
      */
     void RestorePreferredCell(uint32_t activeCell);
+
+    /**
+     * Retry restoring UEs to an active preferred cell.
+     *
+     * @param activeCell Active cell to retry.
+     */
+    void RunRestoreRetry(uint32_t activeCell);
+
+    /**
+     * Schedule a bounded restore retry for one active cell.
+     *
+     * @param activeCell Active cell to retry.
+     * @param delay Retry delay.
+     */
+    void ScheduleRestoreRetry(uint32_t activeCell, Time delay);
+
+    /**
+     * @return Whether a UE can receive another handover request now.
+     *
+     * @param ueIndex UE index.
+     */
+    bool CanRequestHandover(uint32_t ueIndex) const;
+
+    /**
+     * @return Remaining wait time before a UE can be handed over.
+     *
+     * @param ueIndex UE index.
+     */
+    Time GetHandoverWait(uint32_t ueIndex) const;
+
+    /**
+     * Request one UE handover when allowed by the guard interval.
+     *
+     * @param ueIndex UE index.
+     * @param source Source cell.
+     * @param target Target cell.
+     * @return True when a handover was requested.
+     */
+    bool RequestHandover(uint32_t ueIndex, uint32_t source, uint32_t target);
 
     /**
      * Set eNB transmit power.
@@ -321,14 +380,18 @@ class CellSleepController
     std::vector<uint32_t> m_preferredEnb; //!< Preferred eNB per UE.
     std::vector<double> m_ueRatesMbps;  //!< Current offered load per UE.
     std::vector<double> m_previousLoadMbps; //!< Previous interval load estimate.
+    std::vector<double> m_lastHandoverRequestSeconds; //!< Last handover request per UE.
+    std::vector<bool> m_restoreRetryPending; //!< Pending restore retry per eNB.
     double m_effectiveUncertaintyScale{1.0}; //!< Current uncertainty scale.
     double m_lastLoadShock{0.0};             //!< Last normalized load shock.
     double m_lastMaxUtilization{0.0};        //!< Last observed max utilization.
+    double m_lastPolicyRunSeconds{-1.0};     //!< Last policy evaluation time.
     double m_lastEnergyUpdateSeconds{0.0}; //!< Last energy integration time.
     double m_energyJ{0.0};                  //!< Integrated energy use.
     double m_activeCellSeconds{0.0};        //!< Integrated active cell-seconds.
     uint32_t m_unsafeSleepActions{0};       //!< Unsafe non-twin sleep action count.
     uint32_t m_handoverRequests{0};         //!< Handover request count.
+    bool m_demandReevaluationPending{false}; //!< Whether an immediate decision is queued.
 };
 
 } // namespace ns3

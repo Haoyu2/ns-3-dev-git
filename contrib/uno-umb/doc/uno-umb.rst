@@ -50,6 +50,10 @@ is already sleeping, its serving load can be zero even though its home UEs are
 creating load on neighboring active cells.  The controller therefore estimates
 the counterfactual peak-utilization relief from waking that sleeping cell and
 keeps it active when the latent demand and relief exceed configured thresholds.
+UE demand changes can also trigger an immediate bounded policy pass, allowing
+adaptive-twin to wake a sleeping preferred cell before the next periodic
+decision.  A per-UE handover guard defers restore attempts while LTE handover
+state is still settling.
 
 Sleeping a cell is modeled by requesting X2 handovers for served UEs and then
 reducing the eNB transmit power.  Energy is accounted analytically from active
@@ -128,6 +132,8 @@ uncertainty scale, the normalized load shock, and the observed maximum
 utilization for each interval.
 The event log also includes latent preferred-cell load and the estimated peak
 utilization relief from waking a sleeping cell.
+Summary CSV output records whether demand-change reevaluation is enabled and
+the configured handover guard interval.
 
 Examples and Tests
 ------------------

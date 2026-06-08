@@ -24,6 +24,9 @@ Current contribution track:
 - Online uncertainty adaptation for risk-aware sleep decisions.
 - Counterfactual wakeup of sleeping cells when latent preferred-cell demand would
   materially reduce peak active-cell utilization.
+- Event-triggered demand-change reevaluation with a handover guard so adaptive
+  wakeups react before the next periodic control tick without stacking LTE
+  handover requests.
 - Time-averaged offered-load reporting so shifted and steady runs can be compared
   without mixing scenario definitions.
 
@@ -104,6 +107,8 @@ Experiment notes:
   latent preferred-cell demand wakeup.
 - `experiments/feasibility-envelope-pilot.md`: pilot burst-profile/rate envelope
   for separating feasible control regimes from overload regimes.
+- `experiments/demand-guard-calibration.md`: replicated center-burst calibration
+  for guarded event-triggered latent-demand wakeup.
 
 Near-term extension list:
 

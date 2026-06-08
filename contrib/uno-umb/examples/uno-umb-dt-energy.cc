@@ -170,8 +170,10 @@ main(int argc, char* argv[])
     double adaptiveLoadShockGain = 1.5;
     double adaptiveUtilizationGain = 1.0;
     double adaptiveRelaxation = 0.25;
-    double adaptiveLatentLoadThreshold = 2.0;
+    double adaptiveLatentLoadThreshold = 4.0;
     double adaptiveWakeReliefThreshold = 0.08;
+    bool reevaluateOnDemandChange = true;
+    Time handoverGuardTime = Seconds(1.25);
     double activePowerW = 180.0;
     double sleepPowerW = 25.0;
     double minGoodputRatio = 0.85;
@@ -250,6 +252,12 @@ main(int argc, char* argv[])
     cmd.AddValue("adaptiveWakeReliefThreshold",
                  "Peak utilization reduction needed for adaptive wakeup",
                  adaptiveWakeReliefThreshold);
+    cmd.AddValue("reevaluateOnDemandChange",
+                 "Run an immediate control decision after UE demand changes",
+                 reevaluateOnDemandChange);
+    cmd.AddValue("handoverGuardTime",
+                 "Minimum time between handover requests for one UE",
+                 handoverGuardTime);
     cmd.AddValue("activePowerW", "Analytical active eNB power draw", activePowerW);
     cmd.AddValue("sleepPowerW", "Analytical sleeping eNB power draw", sleepPowerW);
     cmd.AddValue("minGoodputRatio", "SLA goodput target relative to offered load", minGoodputRatio);
@@ -444,6 +452,8 @@ main(int argc, char* argv[])
     controllerConfig.adaptiveRelaxation = adaptiveRelaxation;
     controllerConfig.adaptiveLatentLoadThreshold = adaptiveLatentLoadThreshold;
     controllerConfig.adaptiveWakeReliefThreshold = adaptiveWakeReliefThreshold;
+    controllerConfig.reevaluateOnDemandChange = reevaluateOnDemandChange;
+    controllerConfig.handoverGuardTime = handoverGuardTime;
     controllerConfig.activePowerW = activePowerW;
     controllerConfig.sleepPowerW = sleepPowerW;
 
@@ -516,7 +526,8 @@ main(int argc, char* argv[])
                << "adaptive_max_uncertainty_scale,adaptive_load_shock_gain,"
                << "adaptive_utilization_gain,adaptive_relaxation,"
                << "adaptive_latent_load_threshold,adaptive_wake_relief_threshold,"
-               << "throughput_mbps,tx_packets,rx_packets,tx_bytes,rx_bytes,loss_ratio,"
+               << "reevaluate_on_demand_change,handover_guard_time_s,throughput_mbps,"
+               << "tx_packets,rx_packets,tx_bytes,rx_bytes,loss_ratio,"
                << "mean_delay_ms,energy_j,all_on_energy_j,energy_saving_pct,"
                << "active_cell_seconds,unsafe_sleep_actions,handover_requests,sla_violation\n";
     summaryOut << std::fixed << std::setprecision(6) << policyName << "," << trafficProfile
@@ -529,10 +540,12 @@ main(int argc, char* argv[])
                << adaptiveMinUncertaintyScale << "," << adaptiveMaxUncertaintyScale << ","
                << adaptiveLoadShockGain << "," << adaptiveUtilizationGain << ","
                << adaptiveRelaxation << "," << adaptiveLatentLoadThreshold << ","
-               << adaptiveWakeReliefThreshold << "," << throughputMbps << "," << txPackets
-               << "," << rxPackets << "," << txBytes << "," << rxBytes << "," << lossRatio
-               << "," << meanDelayMs << "," << controller.GetEnergyJ() << "," << allOnEnergyJ
-               << "," << energySavingPct << "," << controller.GetActiveCellSeconds() << ","
+               << adaptiveWakeReliefThreshold << "," << (reevaluateOnDemandChange ? 1 : 0)
+               << "," << handoverGuardTime.GetSeconds() << "," << throughputMbps << ","
+               << txPackets << "," << rxPackets << "," << txBytes << "," << rxBytes << ","
+               << lossRatio << "," << meanDelayMs << "," << controller.GetEnergyJ() << ","
+               << allOnEnergyJ << "," << energySavingPct << ","
+               << controller.GetActiveCellSeconds() << ","
                << controller.GetUnsafeSleepActions() << "," << controller.GetHandoverRequests()
                << "," << (slaViolation ? 1 : 0) << "\n";
 

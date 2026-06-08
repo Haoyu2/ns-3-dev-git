@@ -13,8 +13,8 @@ First baselines:
 - `threshold`: sleep cells with low served UE count.
 - `aggressive`: sleep more cells using a looser UE-count threshold.
 - `twin`: sleep low-load cells only when the digital-twin risk estimate is safe.
-- `adaptive-twin`: twin control with online uncertainty scaling from load shock
-  and utilization stress.
+- `adaptive-twin`: twin control with online uncertainty scaling from load shock,
+  utilization stress, and latent preferred-cell demand.
 
 Current contribution track:
 
@@ -22,6 +22,8 @@ Current contribution track:
 - Distribution-shift traffic profiles: `steady`, `center-burst`, `edge-burst`,
   `right-edge-burst`, and `global-burst`.
 - Online uncertainty adaptation for risk-aware sleep decisions.
+- Counterfactual wakeup of sleeping cells when latent preferred-cell demand would
+  materially reduce peak active-cell utilization.
 - Time-averaged offered-load reporting so shifted and steady runs can be compared
   without mixing scenario definitions.
 
@@ -90,6 +92,8 @@ Analysis outputs:
 - `scenario-summary.csv` and `.md`: scenario-level policy summaries.
 - `pairwise-comparison.csv`: twin deltas against threshold and aggressive baselines.
 - `feasibility-comparison.csv`: controller deltas against all-on references.
+- `feasible-policy-summary.csv` and `.md`: controller metrics only on workloads
+  that are feasible with all cells active.
 - `energy-risk.svg`: dependency-free energy/loss scatter plot.
 
 Near-term extension list:

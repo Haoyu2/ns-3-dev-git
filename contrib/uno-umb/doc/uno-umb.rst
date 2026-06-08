@@ -45,6 +45,12 @@ relaxes toward the configured base value after stable intervals.  This creates a
 testable tradeoff between static conservatism and shift-responsive risk
 calibration.
 
+The adaptive-twin policy also tracks latent preferred-cell demand.  When a cell
+is already sleeping, its serving load can be zero even though its home UEs are
+creating load on neighboring active cells.  The controller therefore estimates
+the counterfactual peak-utilization relief from waking that sleeping cell and
+keeps it active when the latent demand and relief exceed configured thresholds.
+
 Sleeping a cell is modeled by requesting X2 handovers for served UEs and then
 reducing the eNB transmit power.  Energy is accounted analytically from active
 and sleep power constants.
@@ -91,7 +97,9 @@ violation and no unsafe sleep action.
 
 When all-on reference rows are included, the analyzer also writes
 ``feasibility-comparison.csv``.  This output separates controller-induced SLA
-violations from workloads that violate the SLA even with all cells active.
+violations from workloads that violate the SLA even with all cells active.  It
+also writes ``feasible-policy-summary.csv`` and ``feasible-policy-summary.md``
+for policy summaries restricted to workloads that are feasible under all-on.
 
 Helpers
 ~~~~~~~
@@ -113,6 +121,8 @@ estimate, coverage margin estimate, uncertainty margins, and the final twin
 safety decision.  For adaptive experiments, it also records the effective
 uncertainty scale, the normalized load shock, and the observed maximum
 utilization for each interval.
+The event log also includes latent preferred-cell load and the estimated peak
+utilization relief from waking a sleeping cell.
 
 Examples and Tests
 ------------------

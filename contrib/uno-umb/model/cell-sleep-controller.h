@@ -53,6 +53,8 @@ struct CellSleepDecisionEstimate
     double minCoverageMarginDb{0.0};     //!< Minimum predicted coverage margin in dB.
     double utilizationUncertainty{0.0};  //!< Utilization uncertainty margin.
     double coverageUncertaintyDb{0.0};   //!< Coverage uncertainty margin in dB.
+    double latentLoadMbps{0.0};          //!< Preferred-cell load hidden by current offload state.
+    double wakeRelief{0.0};              //!< Peak utilization reduction from waking the cell.
 };
 
 /**
@@ -91,6 +93,8 @@ struct CellSleepControllerConfig
     double adaptiveLoadShockGain{1.5};                     //!< Load-shock adaptation gain.
     double adaptiveUtilizationGain{1.0};                   //!< Utilization adaptation gain.
     double adaptiveRelaxation{0.25};                       //!< Stable-period relaxation rate.
+    double adaptiveLatentLoadThreshold{2.0};               //!< UE-equivalent latent load threshold.
+    double adaptiveWakeReliefThreshold{0.08};              //!< Minimum peak utilization relief.
     double activePowerW{180.0};                            //!< Active eNB power draw.
     double sleepPowerW{25.0};                              //!< Sleeping eNB power draw.
 };
@@ -213,6 +217,34 @@ class CellSleepController
      * @return Estimated load per cell in Mb/s.
      */
     std::vector<double> ComputeLoadMbps() const;
+
+    /**
+     * Compute offered load from UEs that prefer one cell.
+     *
+     * @param cell Cell index.
+     * @return Preferred-cell load in Mb/s.
+     */
+    double ComputePreferredLoadMbps(uint32_t cell) const;
+
+    /**
+     * Estimate the peak-utilization relief from waking a sleeping cell.
+     *
+     * @param cell Candidate cell.
+     * @param currentLoadMbps Current estimated load per cell.
+     * @return Reduction in peak active-cell utilization.
+     */
+    double EstimateLatentWakeRelief(uint32_t cell,
+                                    const std::vector<double>& currentLoadMbps) const;
+
+    /**
+     * Decide whether adaptive-twin should wake a sleeping cell for latent demand.
+     *
+     * @param cell Candidate cell.
+     * @param currentLoadMbps Current estimated load per cell.
+     * @return True when waking the cell should be preferred.
+     */
+    bool ShouldWakeForLatentDemand(uint32_t cell,
+                                   const std::vector<double>& currentLoadMbps) const;
 
     /**
      * Estimate the risk of sleeping a candidate cell.

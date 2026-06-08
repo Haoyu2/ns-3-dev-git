@@ -65,6 +65,22 @@ EstimateRsrpDbm(double txPowerDbm, double distanceMeters)
     return txPowerDbm - pathLossDb;
 }
 
+static double
+FindMaxActiveUtilization(const std::vector<double>& loadMbps,
+                         const std::vector<bool>& active,
+                         double cellCapacityMbps)
+{
+    double maxUtilization = 0.0;
+    for (uint32_t cell = 0; cell < loadMbps.size(); ++cell)
+    {
+        if (active[cell])
+        {
+            maxUtilization = std::max(maxUtilization, loadMbps[cell] / cellCapacityMbps);
+        }
+    }
+    return maxUtilization;
+}
+
 CellSleepController::CellSleepController(const CellSleepControllerConfig& config,
                                          std::ofstream* eventCsv)
     : m_config(config),
@@ -93,6 +109,10 @@ CellSleepController::CellSleepController(const CellSleepControllerConfig& config
                     "adaptiveMaxUncertaintyScale must be at least adaptiveMinUncertaintyScale");
     NS_ABORT_MSG_IF(m_config.adaptiveRelaxation < 0.0 || m_config.adaptiveRelaxation > 1.0,
                     "adaptiveRelaxation must be in [0, 1]");
+    NS_ABORT_MSG_IF(m_config.adaptiveLatentLoadThreshold < 0.0,
+                    "adaptiveLatentLoadThreshold must be non-negative");
+    NS_ABORT_MSG_IF(m_config.adaptiveWakeReliefThreshold < 0.0,
+                    "adaptiveWakeReliefThreshold must be non-negative");
 }
 
 void
@@ -155,7 +175,8 @@ CellSleepController::GetEventCsvHeader()
 {
     return "time_s,policy,cell,action,reason,was_active,load_mbps,max_utilization,"
            "min_coverage_margin_db,utilization_uncertainty,coverage_uncertainty_db,"
-           "uncertainty_scale,load_shock,max_observed_utilization,twin_safe";
+           "uncertainty_scale,load_shock,max_observed_utilization,latent_load_mbps,"
+           "wake_relief,twin_safe";
 }
 
 void
@@ -178,10 +199,12 @@ CellSleepController::RunPolicy()
         const double decisionLoadMbps = loadMbps[cell];
         if (desiredActive[cell] && !m_active[cell])
         {
+            const CellSleepDecisionEstimate estimate =
+                EstimateSleepRisk(cell, desiredActive, loadMbps);
             SetEnbTxPower(cell, m_config.activeTxPowerDbm);
             m_active[cell] = true;
             RestorePreferredCell(cell);
-            WriteDecision(cell, "wake", "policy-selected-active", decisionLoadMbps, {});
+            WriteDecision(cell, "wake", "policy-selected-active", decisionLoadMbps, estimate);
             loadMbps = ComputeLoadMbps();
         }
         else if (!desiredActive[cell] && m_active[cell])
@@ -307,6 +330,11 @@ CellSleepController::ApplySleepSelection(const std::vector<double>& loadMbps,
             continue;
         }
 
+        if (ShouldWakeForLatentDemand(cell, loadMbps))
+        {
+            continue;
+        }
+
         if (UsesRiskGate())
         {
             CellSleepDecisionEstimate estimate = EstimateSleepRisk(cell, desiredActive, loadMbps);
@@ -332,12 +360,89 @@ CellSleepController::ComputeLoadMbps() const
     return load;
 }
 
+double
+CellSleepController::ComputePreferredLoadMbps(uint32_t cell) const
+{
+    double load = 0.0;
+    for (uint32_t u = 0; u < m_preferredEnb.size(); ++u)
+    {
+        if (m_preferredEnb[u] == cell)
+        {
+            load += m_ueRatesMbps[u];
+        }
+    }
+    return load;
+}
+
+double
+CellSleepController::EstimateLatentWakeRelief(
+    uint32_t cell,
+    const std::vector<double>& currentLoadMbps) const
+{
+    if (cell >= currentLoadMbps.size() || m_active[cell])
+    {
+        return 0.0;
+    }
+
+    std::vector<double> restoredLoadMbps = currentLoadMbps;
+    double preferredLoadMbps = 0.0;
+    for (uint32_t u = 0; u < m_preferredEnb.size(); ++u)
+    {
+        if (m_preferredEnb[u] != cell)
+        {
+            continue;
+        }
+
+        preferredLoadMbps += m_ueRatesMbps[u];
+        const uint32_t source = m_config.servingEnb[u];
+        if (source < restoredLoadMbps.size() && source != cell)
+        {
+            restoredLoadMbps[source] = std::max(0.0, restoredLoadMbps[source] - m_ueRatesMbps[u]);
+        }
+    }
+    restoredLoadMbps[cell] = preferredLoadMbps;
+
+    std::vector<bool> restoredActive = m_active;
+    restoredActive[cell] = true;
+
+    const double currentPeak =
+        FindMaxActiveUtilization(currentLoadMbps, m_active, m_config.cellCapacityMbps);
+    const double restoredPeak =
+        FindMaxActiveUtilization(restoredLoadMbps, restoredActive, m_config.cellCapacityMbps);
+    return std::max(currentPeak - restoredPeak, 0.0);
+}
+
+bool
+CellSleepController::ShouldWakeForLatentDemand(
+    uint32_t cell,
+    const std::vector<double>& currentLoadMbps) const
+{
+    if (m_config.policy != CellSleepPolicyMode::AdaptiveTwin || m_active[cell])
+    {
+        return false;
+    }
+
+    const double preferredLoadMbps = ComputePreferredLoadMbps(cell);
+    const double latentLoadMbps = std::max(preferredLoadMbps - currentLoadMbps[cell], 0.0);
+    const double latentUes = latentLoadMbps / std::max(m_config.ueRateMbps, 1e-9);
+    if (latentUes <= m_config.adaptiveLatentLoadThreshold)
+    {
+        return false;
+    }
+
+    return EstimateLatentWakeRelief(cell, currentLoadMbps) >=
+           m_config.adaptiveWakeReliefThreshold;
+}
+
 CellSleepDecisionEstimate
 CellSleepController::EstimateSleepRisk(uint32_t candidateCell,
                                        const std::vector<bool>& desiredActive,
                                        const std::vector<double>& currentLoadMbps) const
 {
     CellSleepDecisionEstimate estimate;
+    estimate.latentLoadMbps =
+        std::max(ComputePreferredLoadMbps(candidateCell) - currentLoadMbps[candidateCell], 0.0);
+    estimate.wakeRelief = EstimateLatentWakeRelief(candidateCell, currentLoadMbps);
     std::vector<bool> activeAfter = desiredActive;
     activeAfter[candidateCell] = false;
 
@@ -516,7 +621,8 @@ CellSleepController::WriteDecision(uint32_t cell,
                 << estimate.maxUtilization << "," << estimate.minCoverageMarginDb << ","
                 << estimate.utilizationUncertainty << "," << estimate.coverageUncertaintyDb << ","
                 << GetEffectiveUncertaintyScale() << "," << m_lastLoadShock << ","
-                << m_lastMaxUtilization << ","
+                << m_lastMaxUtilization << "," << estimate.latentLoadMbps << ","
+                << estimate.wakeRelief << ","
                 << (estimate.safe ? 1 : 0) << "\n";
 }
 

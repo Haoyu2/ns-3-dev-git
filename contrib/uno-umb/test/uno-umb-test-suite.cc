@@ -62,6 +62,12 @@ CellSleepPolicyTestCase::DoRun()
     NS_TEST_ASSERT_MSG_NE(header.find("uncertainty_scale"),
                           std::string::npos,
                           "event CSV header should include uncertainty_scale");
+    NS_TEST_ASSERT_MSG_NE(header.find("latent_load_mbps"),
+                          std::string::npos,
+                          "event CSV header should include latent_load_mbps");
+    NS_TEST_ASSERT_MSG_NE(header.find("wake_relief"),
+                          std::string::npos,
+                          "event CSV header should include wake_relief");
 
     NodeContainer enbs;
     enbs.Create(1);

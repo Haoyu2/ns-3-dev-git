@@ -23,6 +23,16 @@ DERIVED_METRICS = [
     "safe_energy_saving_pct",
 ]
 METRICS = BASE_METRICS + DERIVED_METRICS
+FEASIBILITY_METRICS = [
+    "throughput_mbps",
+    "loss_ratio",
+    "energy_saving_pct",
+    "safe_run",
+    "safe_energy_saving_pct",
+    "excess_loss_vs_all_on",
+    "throughput_delta_vs_all_on",
+    "controller_induced_sla_violation",
+]
 
 POLICY_COLORS = {
     "all-on": "#4b5563",
@@ -46,6 +56,16 @@ def metric_value(row, field):
         return 1.0 if safe else 0.0
     if field == "safe_energy_saving_pct":
         return as_float(row, "energy_saving_pct") if metric_value(row, "safe_run") else 0.0
+    return as_float(row, field)
+
+
+def feasibility_metric_value(row, field):
+    if field == "safe_run":
+        return 1.0 if as_float(row, "sla_violation") < 0.5 else 0.0
+    if field == "safe_energy_saving_pct":
+        if feasibility_metric_value(row, "safe_run"):
+            return as_float(row, "energy_saving_pct")
+        return 0.0
     return as_float(row, field)
 
 
@@ -150,6 +170,8 @@ def write_scenario_summary(rows, output_dir):
         "adaptive_load_shock_gain",
         "adaptive_utilization_gain",
         "adaptive_relaxation",
+        "adaptive_latent_load_threshold",
+        "adaptive_wake_relief_threshold",
         "traffic_profile",
         "burst_rate_multiplier",
         "shift_start_s",
@@ -189,6 +211,8 @@ def write_pairwise_comparison(rows, output_dir):
         "adaptive_load_shock_gain",
         "adaptive_utilization_gain",
         "adaptive_relaxation",
+        "adaptive_latent_load_threshold",
+        "adaptive_wake_relief_threshold",
         "traffic_profile",
         "burst_rate_multiplier",
         "shift_start_s",
@@ -302,6 +326,8 @@ def write_feasibility_comparison(rows, output_dir):
         "adaptive_load_shock_gain",
         "adaptive_utilization_gain",
         "adaptive_relaxation",
+        "adaptive_latent_load_threshold",
+        "adaptive_wake_relief_threshold",
         "all_on_throughput_mbps",
         "all_on_loss_ratio",
         "all_on_sla_violation",
@@ -336,6 +362,8 @@ def write_feasibility_comparison(rows, output_dir):
                 "adaptive_load_shock_gain": row.get("adaptive_load_shock_gain", ""),
                 "adaptive_utilization_gain": row.get("adaptive_utilization_gain", ""),
                 "adaptive_relaxation": row.get("adaptive_relaxation", ""),
+                "adaptive_latent_load_threshold": row.get("adaptive_latent_load_threshold", ""),
+                "adaptive_wake_relief_threshold": row.get("adaptive_wake_relief_threshold", ""),
                 "all_on_throughput_mbps": as_float(all_on, "throughput_mbps"),
                 "all_on_loss_ratio": as_float(all_on, "loss_ratio"),
                 "all_on_sla_violation": all_on_sla_violation,
@@ -361,7 +389,63 @@ def write_feasibility_comparison(rows, output_dir):
         writer.writeheader()
         writer.writerows(comparison_rows)
 
-    return comparison_csv
+    feasible_summary_csv, feasible_summary_md = write_feasible_policy_summary(
+        comparison_rows,
+        output_dir,
+    )
+    return comparison_csv, feasible_summary_csv, feasible_summary_md
+
+
+def write_feasible_policy_summary(feasibility_rows, output_dir):
+    group_fields = [
+        "policy",
+        "uncertainty_scale",
+        "adaptive_latent_load_threshold",
+        "adaptive_wake_relief_threshold",
+    ]
+    grouped = defaultdict(list)
+    for row in feasibility_rows:
+        if as_float(row, "all_on_feasible") < 0.5:
+            continue
+        key = tuple(row.get(field, "") for field in group_fields)
+        grouped[key].append(row)
+
+    summary_rows = []
+    for key, group_rows in sorted(grouped.items()):
+        summary = dict(zip(group_fields, key))
+        summary["runs"] = len(group_rows)
+        for metric in FEASIBILITY_METRICS:
+            values = [feasibility_metric_value(row, metric) for row in group_rows]
+            summary[f"{metric}_mean"] = mean(values)
+            summary[f"{metric}_stdev"] = stdev(values)
+        summary_rows.append(summary)
+
+    fields = list(group_fields) + ["runs"]
+    for metric in FEASIBILITY_METRICS:
+        fields.extend([f"{metric}_mean", f"{metric}_stdev"])
+
+    summary_csv = output_dir / "feasible-policy-summary.csv"
+    with summary_csv.open("w", newline="") as handle:
+        writer = csv.DictWriter(handle, fieldnames=fields)
+        writer.writeheader()
+        writer.writerows(summary_rows)
+
+    summary_md = output_dir / "feasible-policy-summary.md"
+    write_summary_md(
+        summary_rows,
+        group_fields
+        + [
+            "runs",
+            "energy_saving_pct_mean",
+            "safe_energy_saving_pct_mean",
+            "loss_ratio_mean",
+            "excess_loss_vs_all_on_mean",
+            "controller_induced_sla_violation_mean",
+            "safe_run_mean",
+        ],
+        summary_md,
+    )
+    return summary_csv, summary_md
 
 
 def write_energy_risk_svg(summary_rows, output_dir):
@@ -485,7 +569,10 @@ def main():
     summary_csv, summary_md, policy_summary_rows = write_policy_summary(rows, output_dir)
     scenario_csv, scenario_md = write_scenario_summary(rows, output_dir)
     comparison_csv = write_pairwise_comparison(rows, output_dir)
-    feasibility_csv = write_feasibility_comparison(rows, output_dir)
+    feasibility_csv, feasible_summary_csv, feasible_summary_md = write_feasibility_comparison(
+        rows,
+        output_dir,
+    )
     svg_path = write_energy_risk_svg(policy_summary_rows, output_dir)
 
     print(f"Wrote {summary_csv}")
@@ -494,6 +581,8 @@ def main():
     print(f"Wrote {scenario_md}")
     print(f"Wrote {comparison_csv}")
     print(f"Wrote {feasibility_csv}")
+    print(f"Wrote {feasible_summary_csv}")
+    print(f"Wrote {feasible_summary_md}")
     print(f"Wrote {svg_path}")
 
 

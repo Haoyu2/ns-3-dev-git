@@ -170,6 +170,8 @@ main(int argc, char* argv[])
     double adaptiveLoadShockGain = 1.5;
     double adaptiveUtilizationGain = 1.0;
     double adaptiveRelaxation = 0.25;
+    double adaptiveLatentLoadThreshold = 2.0;
+    double adaptiveWakeReliefThreshold = 0.08;
     double activePowerW = 180.0;
     double sleepPowerW = 25.0;
     double minGoodputRatio = 0.85;
@@ -242,6 +244,12 @@ main(int argc, char* argv[])
     cmd.AddValue("adaptiveRelaxation",
                  "Adaptive-twin relaxation rate after stable intervals",
                  adaptiveRelaxation);
+    cmd.AddValue("adaptiveLatentLoadThreshold",
+                 "UE-equivalent latent preferred-cell load needed for adaptive wakeup",
+                 adaptiveLatentLoadThreshold);
+    cmd.AddValue("adaptiveWakeReliefThreshold",
+                 "Peak utilization reduction needed for adaptive wakeup",
+                 adaptiveWakeReliefThreshold);
     cmd.AddValue("activePowerW", "Analytical active eNB power draw", activePowerW);
     cmd.AddValue("sleepPowerW", "Analytical sleeping eNB power draw", sleepPowerW);
     cmd.AddValue("minGoodputRatio", "SLA goodput target relative to offered load", minGoodputRatio);
@@ -266,6 +274,10 @@ main(int argc, char* argv[])
                     "adaptiveMaxUncertaintyScale must be at least adaptiveMinUncertaintyScale.");
     NS_ABORT_MSG_IF(adaptiveRelaxation < 0.0 || adaptiveRelaxation > 1.0,
                     "adaptiveRelaxation must be in [0, 1].");
+    NS_ABORT_MSG_IF(adaptiveLatentLoadThreshold < 0.0,
+                    "adaptiveLatentLoadThreshold must be non-negative.");
+    NS_ABORT_MSG_IF(adaptiveWakeReliefThreshold < 0.0,
+                    "adaptiveWakeReliefThreshold must be non-negative.");
 
     const CellSleepPolicyMode policy = ParseCellSleepPolicy(policyName);
 
@@ -430,6 +442,8 @@ main(int argc, char* argv[])
     controllerConfig.adaptiveLoadShockGain = adaptiveLoadShockGain;
     controllerConfig.adaptiveUtilizationGain = adaptiveUtilizationGain;
     controllerConfig.adaptiveRelaxation = adaptiveRelaxation;
+    controllerConfig.adaptiveLatentLoadThreshold = adaptiveLatentLoadThreshold;
+    controllerConfig.adaptiveWakeReliefThreshold = adaptiveWakeReliefThreshold;
     controllerConfig.activePowerW = activePowerW;
     controllerConfig.sleepPowerW = sleepPowerW;
 
@@ -501,6 +515,7 @@ main(int argc, char* argv[])
                << "uncertainty_scale,adaptive_min_uncertainty_scale,"
                << "adaptive_max_uncertainty_scale,adaptive_load_shock_gain,"
                << "adaptive_utilization_gain,adaptive_relaxation,"
+               << "adaptive_latent_load_threshold,adaptive_wake_relief_threshold,"
                << "throughput_mbps,tx_packets,rx_packets,tx_bytes,rx_bytes,loss_ratio,"
                << "mean_delay_ms,energy_j,all_on_energy_j,energy_saving_pct,"
                << "active_cell_seconds,unsafe_sleep_actions,handover_requests,sla_violation\n";
@@ -513,10 +528,11 @@ main(int argc, char* argv[])
                << burstDurationSeconds << "," << uncertaintyScale << ","
                << adaptiveMinUncertaintyScale << "," << adaptiveMaxUncertaintyScale << ","
                << adaptiveLoadShockGain << "," << adaptiveUtilizationGain << ","
-               << adaptiveRelaxation << "," << throughputMbps << "," << txPackets << ","
-               << rxPackets << "," << txBytes << "," << rxBytes << "," << lossRatio << ","
-               << meanDelayMs << "," << controller.GetEnergyJ() << "," << allOnEnergyJ << ","
-               << energySavingPct << "," << controller.GetActiveCellSeconds() << ","
+               << adaptiveRelaxation << "," << adaptiveLatentLoadThreshold << ","
+               << adaptiveWakeReliefThreshold << "," << throughputMbps << "," << txPackets
+               << "," << rxPackets << "," << txBytes << "," << rxBytes << "," << lossRatio
+               << "," << meanDelayMs << "," << controller.GetEnergyJ() << "," << allOnEnergyJ
+               << "," << energySavingPct << "," << controller.GetActiveCellSeconds() << ","
                << controller.GetUnsafeSleepActions() << "," << controller.GetHandoverRequests()
                << "," << (slaViolation ? 1 : 0) << "\n";
 

@@ -34,6 +34,8 @@ def main():
     parser.add_argument("--adaptive-load-shock-gains", default="1.5")
     parser.add_argument("--adaptive-utilization-gains", default="1.0")
     parser.add_argument("--adaptive-relaxations", default="0.25")
+    parser.add_argument("--adaptive-latent-load-thresholds", default="2.0")
+    parser.add_argument("--adaptive-wake-relief-thresholds", default="0.08")
     parser.add_argument("--traffic-profiles", default="steady,center-burst")
     parser.add_argument("--burst-rate-multipliers", default="3.0")
     parser.add_argument("--shift-start", default="3.0s")
@@ -61,6 +63,8 @@ def main():
     adaptive_load_shock_gains = split_csv(args.adaptive_load_shock_gains, float)
     adaptive_utilization_gains = split_csv(args.adaptive_utilization_gains, float)
     adaptive_relaxations = split_csv(args.adaptive_relaxations, float)
+    adaptive_latent_load_thresholds = split_csv(args.adaptive_latent_load_thresholds, float)
+    adaptive_wake_relief_thresholds = split_csv(args.adaptive_wake_relief_thresholds, float)
     traffic_profiles = split_csv(args.traffic_profiles)
     burst_rate_multipliers = split_csv(args.burst_rate_multipliers, float)
 
@@ -87,6 +91,8 @@ def main():
             adaptive_load_shock_gains,
             adaptive_utilization_gains,
             adaptive_relaxations,
+            adaptive_latent_load_thresholds,
+            adaptive_wake_relief_thresholds,
             traffic_profiles,
             burst_rate_multipliers,
         )
@@ -105,6 +111,8 @@ def main():
         adaptive_load_shock_gain,
         adaptive_utilization_gain,
         adaptive_relaxation,
+        adaptive_latent_load_threshold,
+        adaptive_wake_relief_threshold,
         traffic_profile,
         burst_rate_multiplier,
     ) in enumerate(combinations, start=1):
@@ -124,6 +132,8 @@ def main():
             adaptive_load_shock_gain,
             adaptive_utilization_gain,
             adaptive_relaxation,
+            adaptive_latent_load_threshold,
+            adaptive_wake_relief_threshold,
             traffic_profile,
             effective_burst_rate_multiplier,
         )
@@ -138,6 +148,7 @@ def main():
             f"-amax{adaptive_max_uncertainty_scale}"
             f"-ashock{adaptive_load_shock_gain}-autil{adaptive_utilization_gain}"
             f"-arelax{adaptive_relaxation}"
+            f"-alatent{adaptive_latent_load_threshold}-arelief{adaptive_wake_relief_threshold}"
         ).replace(".", "p")
         summary_csv = out_dir / f"{run_id}-summary.csv"
         event_csv = out_dir / f"{run_id}-events.csv"
@@ -155,6 +166,8 @@ def main():
             f"--adaptiveLoadShockGain={adaptive_load_shock_gain} "
             f"--adaptiveUtilizationGain={adaptive_utilization_gain} "
             f"--adaptiveRelaxation={adaptive_relaxation} "
+            f"--adaptiveLatentLoadThreshold={adaptive_latent_load_threshold} "
+            f"--adaptiveWakeReliefThreshold={adaptive_wake_relief_threshold} "
             f"--trafficProfile={traffic_profile} "
             f"--burstRateMultiplier={effective_burst_rate_multiplier} "
             f"--shiftStart={args.shift_start} "
@@ -178,6 +191,8 @@ def main():
                 "adaptive_load_shock_gain": adaptive_load_shock_gain,
                 "adaptive_utilization_gain": adaptive_utilization_gain,
                 "adaptive_relaxation": adaptive_relaxation,
+                "adaptive_latent_load_threshold": adaptive_latent_load_threshold,
+                "adaptive_wake_relief_threshold": adaptive_wake_relief_threshold,
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,
                 "command": ["./ns3", "run", program],
@@ -200,6 +215,8 @@ def main():
                 "adaptive_load_shock_gain": adaptive_load_shock_gain,
                 "adaptive_utilization_gain": adaptive_utilization_gain,
                 "adaptive_relaxation": adaptive_relaxation,
+                "adaptive_latent_load_threshold": adaptive_latent_load_threshold,
+                "adaptive_wake_relief_threshold": adaptive_wake_relief_threshold,
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,
                 "shift_start": args.shift_start,

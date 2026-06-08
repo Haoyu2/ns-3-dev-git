@@ -96,6 +96,11 @@ Analysis outputs:
   that are feasible with all cells active.
 - `energy-risk.svg`: dependency-free energy/loss scatter plot.
 
+Experiment notes:
+
+- `experiments/latent-wakeup-ablation.md`: replicated center-burst ablation for
+  latent preferred-cell demand wakeup.
+
 Near-term extension list:
 
 - Add mobility and inter-cell correlated bursts to create harder distribution shifts.

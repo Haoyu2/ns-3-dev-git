@@ -64,6 +64,12 @@ def is_failed_run(row):
     return row.get("run_status", "ok") not in {"", "ok"}
 
 
+def normalize_row(row):
+    row.setdefault("forecast_lead_time_s", "0.0")
+    row.setdefault("controller_shift_start_s", row.get("shift_start_s", ""))
+    return row
+
+
 def metric_value(row, field):
     if field == "simulation_failure":
         return 1.0 if is_failed_run(row) else 0.0
@@ -162,6 +168,7 @@ def write_run_status_summary(rows, output_dir):
         "uncertainty_scale",
         "adaptive_latent_load_threshold",
         "adaptive_wake_relief_threshold",
+        "forecast_lead_time_s",
     ]
     grouped = defaultdict(list)
     for row in rows:
@@ -258,6 +265,8 @@ def write_scenario_summary(rows, output_dir):
         "burst_rate_multiplier",
         "shift_start_s",
         "shift_stop_s",
+        "forecast_lead_time_s",
+        "controller_shift_start_s",
     ]
     summary_rows = summarize_rows(rows, group_fields)
     summary_csv = output_dir / "scenario-summary.csv"
@@ -300,6 +309,8 @@ def write_pairwise_comparison(rows, output_dir):
         "burst_rate_multiplier",
         "shift_start_s",
         "shift_stop_s",
+        "forecast_lead_time_s",
+        "controller_shift_start_s",
     ]
     by_scenario = defaultdict(dict)
     for row in rows:
@@ -413,6 +424,7 @@ def write_feasibility_comparison(rows, output_dir):
         "adaptive_relaxation",
         "adaptive_latent_load_threshold",
         "adaptive_wake_relief_threshold",
+        "forecast_lead_time_s",
         "all_on_throughput_mbps",
         "all_on_loss_ratio",
         "all_on_sla_violation",
@@ -453,6 +465,7 @@ def write_feasibility_comparison(rows, output_dir):
                 "adaptive_relaxation": row.get("adaptive_relaxation", ""),
                 "adaptive_latent_load_threshold": row.get("adaptive_latent_load_threshold", ""),
                 "adaptive_wake_relief_threshold": row.get("adaptive_wake_relief_threshold", ""),
+                "forecast_lead_time_s": row.get("forecast_lead_time_s", ""),
                 "all_on_throughput_mbps": as_float(all_on, "throughput_mbps"),
                 "all_on_loss_ratio": as_float(all_on, "loss_ratio"),
                 "all_on_sla_violation": all_on_sla_violation,
@@ -497,6 +510,7 @@ def write_feasible_policy_summary(feasibility_rows, output_dir):
         "uncertainty_scale",
         "adaptive_latent_load_threshold",
         "adaptive_wake_relief_threshold",
+        "forecast_lead_time_s",
     ]
     grouped = defaultdict(list)
     for row in feasibility_rows:
@@ -557,6 +571,7 @@ def write_feasibility_envelope_summary(feasibility_rows, output_dir):
         "uncertainty_scale",
         "adaptive_latent_load_threshold",
         "adaptive_wake_relief_threshold",
+        "forecast_lead_time_s",
     ]
 
     all_on_by_envelope = {}
@@ -744,7 +759,7 @@ def main():
     rows = []
     for aggregate_csv in aggregate_paths:
         with aggregate_csv.open(newline="") as handle:
-            rows.extend(csv.DictReader(handle))
+            rows.extend(normalize_row(row) for row in csv.DictReader(handle))
 
     if not rows:
         raise SystemExit("No rows found in aggregate CSV")

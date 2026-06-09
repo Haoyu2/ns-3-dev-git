@@ -27,6 +27,8 @@ Current contribution track:
 - Event-triggered demand-change reevaluation with a handover guard so adaptive
   wakeups react before the next periodic control tick without stacking LTE
   handover requests.
+- Forecast lead-time control for anticipated traffic shifts so the controller
+  can settle handovers before burst traffic arrives.
 - Time-averaged offered-load reporting so shifted and steady runs can be compared
   without mixing scenario definitions.
 
@@ -46,6 +48,7 @@ Useful first runs:
 ./ns3 run "uno-umb-dt-energy --policy=twin"
 ./ns3 run "uno-umb-dt-energy --policy=adaptive-twin"
 ./ns3 run "uno-umb-dt-energy --policy=twin --trafficProfile=center-burst --burstRateMultiplier=3.0"
+./ns3 run "uno-umb-dt-energy --policy=adaptive-twin --trafficProfile=right-edge-burst --burstRateMultiplier=1.5 --forecastLeadTime=1.0s"
 ```
 
 CSV outputs:
@@ -80,7 +83,8 @@ python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
   --spacings=400,500,650 \
   --uncertainty-scales=0.5,1.0,1.5 \
   --traffic-profiles=steady,center-burst,edge-burst,global-burst \
-  --burst-rate-multipliers=2.0,3.0,4.0
+  --burst-rate-multipliers=2.0,3.0,4.0 \
+  --forecast-lead-times=0.0s,0.5s,1.0s
 ```
 
 Analyze an aggregate CSV:
@@ -109,6 +113,8 @@ Experiment notes:
   for separating feasible control regimes from overload regimes.
 - `experiments/demand-guard-calibration.md`: replicated center-burst calibration
   for guarded event-triggered latent-demand wakeup.
+- `experiments/replicated-feasibility-envelope.md`: replicated burst-profile
+  envelope plus right-edge forecast lead-time ablation.
 
 Near-term extension list:
 

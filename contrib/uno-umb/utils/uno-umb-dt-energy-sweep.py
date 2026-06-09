@@ -69,6 +69,7 @@ def make_failure_row(
     adaptive_relaxation,
     adaptive_latent_load_threshold,
     adaptive_wake_relief_threshold,
+    forecast_lead_time,
     traffic_profile,
     burst_rate_multiplier,
     shift_start,
@@ -83,6 +84,7 @@ def make_failure_row(
     sim_time_s = as_seconds(sim_time)
     shift_start_s = as_seconds(shift_start)
     shift_stop_s = as_seconds(shift_stop)
+    forecast_lead_time_s = as_seconds(forecast_lead_time)
     measurement_start_s = 0.7
     measurement_stop_s = max(sim_time_s - 0.1, measurement_start_s)
     measurement_s = max(measurement_stop_s - measurement_start_s, 1.0)
@@ -97,6 +99,9 @@ def make_failure_row(
     offered_load_mbps = base_offered_load_mbps + burst_extra_load_mbps * (
         burst_duration_s / measurement_s
     )
+    controller_shift_start_s = shift_start_s
+    if shift_ues > 0 and burst_rate_multiplier > 1.0 and forecast_lead_time_s > 0.0:
+        controller_shift_start_s = max(shift_start_s - forecast_lead_time_s, 0.6)
 
     return {
         "policy": policy,
@@ -115,6 +120,8 @@ def make_failure_row(
         "burst_rate_multiplier": burst_rate_multiplier,
         "shift_start_s": shift_start_s,
         "shift_stop_s": shift_stop_s,
+        "forecast_lead_time_s": forecast_lead_time_s,
+        "controller_shift_start_s": controller_shift_start_s,
         "burst_duration_s": burst_duration_s,
         "uncertainty_scale": uncertainty_scale,
         "adaptive_min_uncertainty_scale": adaptive_min_uncertainty_scale,
@@ -177,6 +184,7 @@ def main():
     parser.add_argument("--adaptive-relaxations", default="0.25")
     parser.add_argument("--adaptive-latent-load-thresholds", default="4.0")
     parser.add_argument("--adaptive-wake-relief-thresholds", default="0.08")
+    parser.add_argument("--forecast-lead-times", default="0.0s")
     parser.add_argument("--traffic-profiles", default="steady,center-burst")
     parser.add_argument("--burst-rate-multipliers", default="3.0")
     parser.add_argument("--shift-start", default="3.0s")
@@ -211,6 +219,7 @@ def main():
     adaptive_relaxations = split_csv(args.adaptive_relaxations, float)
     adaptive_latent_load_thresholds = split_csv(args.adaptive_latent_load_thresholds, float)
     adaptive_wake_relief_thresholds = split_csv(args.adaptive_wake_relief_thresholds, float)
+    forecast_lead_times = split_csv(args.forecast_lead_times)
     traffic_profiles = split_csv(args.traffic_profiles)
     burst_rate_multipliers = split_csv(args.burst_rate_multipliers, float)
 
@@ -241,6 +250,7 @@ def main():
             adaptive_relaxations,
             adaptive_latent_load_thresholds,
             adaptive_wake_relief_thresholds,
+            forecast_lead_times,
             traffic_profiles,
             burst_rate_multipliers,
         )
@@ -261,6 +271,7 @@ def main():
         adaptive_relaxation,
         adaptive_latent_load_threshold,
         adaptive_wake_relief_threshold,
+        forecast_lead_time,
         traffic_profile,
         burst_rate_multiplier,
     ) in enumerate(combinations, start=1):
@@ -282,6 +293,7 @@ def main():
             adaptive_relaxation,
             adaptive_latent_load_threshold,
             adaptive_wake_relief_threshold,
+            forecast_lead_time,
             traffic_profile,
             effective_burst_rate_multiplier,
         )
@@ -297,6 +309,7 @@ def main():
             f"-ashock{adaptive_load_shock_gain}-autil{adaptive_utilization_gain}"
             f"-arelax{adaptive_relaxation}"
             f"-alatent{adaptive_latent_load_threshold}-arelief{adaptive_wake_relief_threshold}"
+            f"-flead{forecast_lead_time}"
         ).replace(".", "p")
         summary_csv = out_dir / f"{run_id}-summary.csv"
         event_csv = out_dir / f"{run_id}-events.csv"
@@ -317,6 +330,7 @@ def main():
             f"--adaptiveRelaxation={adaptive_relaxation} "
             f"--adaptiveLatentLoadThreshold={adaptive_latent_load_threshold} "
             f"--adaptiveWakeReliefThreshold={adaptive_wake_relief_threshold} "
+            f"--forecastLeadTime={forecast_lead_time} "
             f"--trafficProfile={traffic_profile} "
             f"--burstRateMultiplier={effective_burst_rate_multiplier} "
             f"--shiftStart={args.shift_start} "
@@ -342,6 +356,7 @@ def main():
                 "adaptive_relaxation": adaptive_relaxation,
                 "adaptive_latent_load_threshold": adaptive_latent_load_threshold,
                 "adaptive_wake_relief_threshold": adaptive_wake_relief_threshold,
+                "forecast_lead_time": forecast_lead_time,
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,
                 "command": ["./ns3", "run", program],
@@ -373,6 +388,7 @@ def main():
                     adaptive_relaxation=adaptive_relaxation,
                     adaptive_latent_load_threshold=adaptive_latent_load_threshold,
                     adaptive_wake_relief_threshold=adaptive_wake_relief_threshold,
+                    forecast_lead_time=forecast_lead_time,
                     traffic_profile=traffic_profile,
                     burst_rate_multiplier=effective_burst_rate_multiplier,
                     shift_start=args.shift_start,
@@ -405,6 +421,7 @@ def main():
                 "adaptive_relaxation": adaptive_relaxation,
                 "adaptive_latent_load_threshold": adaptive_latent_load_threshold,
                 "adaptive_wake_relief_threshold": adaptive_wake_relief_threshold,
+                "forecast_lead_time_s": as_seconds(forecast_lead_time),
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,
                 "shift_start": args.shift_start,

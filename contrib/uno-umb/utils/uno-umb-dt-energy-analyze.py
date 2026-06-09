@@ -76,6 +76,9 @@ def normalize_row(row):
     row.setdefault("forecast_burst_rate_error", "0.0")
     row.setdefault("forecast_burst_rate_uncertainty", "0.0")
     row.setdefault("forecast_utilization_margin", "0.0")
+    row.setdefault("forecast_correction_delay_s", "-1.0")
+    row.setdefault("forecast_correction_applied", "0")
+    row.setdefault("forecast_correction_time_s", "-1.0")
     row.setdefault("controller_shift_start_s", row.get("shift_start_s", ""))
     return row
 
@@ -184,6 +187,8 @@ def write_run_status_summary(rows, output_dir):
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
         "forecast_utilization_margin",
+        "forecast_correction_delay_s",
+        "forecast_correction_applied",
     ]
     grouped = defaultdict(list)
     for row in rows:
@@ -287,6 +292,9 @@ def write_scenario_summary(rows, output_dir):
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
         "forecast_utilization_margin",
+        "forecast_correction_delay_s",
+        "forecast_correction_applied",
+        "forecast_correction_time_s",
         "controller_shift_start_s",
     ]
     summary_rows = summarize_rows(rows, group_fields)
@@ -337,6 +345,9 @@ def write_pairwise_comparison(rows, output_dir):
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
         "forecast_utilization_margin",
+        "forecast_correction_delay_s",
+        "forecast_correction_applied",
+        "forecast_correction_time_s",
         "controller_shift_start_s",
     ]
     by_scenario = defaultdict(dict)
@@ -458,6 +469,8 @@ def write_feasibility_comparison(rows, output_dir):
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
         "forecast_utilization_margin",
+        "forecast_correction_delay_s",
+        "forecast_correction_applied",
         "all_on_throughput_mbps",
         "all_on_loss_ratio",
         "all_on_sla_violation",
@@ -508,6 +521,8 @@ def write_feasibility_comparison(rows, output_dir):
                     "",
                 ),
                 "forecast_utilization_margin": row.get("forecast_utilization_margin", ""),
+                "forecast_correction_delay_s": row.get("forecast_correction_delay_s", ""),
+                "forecast_correction_applied": row.get("forecast_correction_applied", ""),
                 "all_on_throughput_mbps": as_float(all_on, "throughput_mbps"),
                 "all_on_loss_ratio": as_float(all_on, "loss_ratio"),
                 "all_on_sla_violation": all_on_sla_violation,
@@ -559,6 +574,8 @@ def write_feasible_policy_summary(feasibility_rows, output_dir):
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
         "forecast_utilization_margin",
+        "forecast_correction_delay_s",
+        "forecast_correction_applied",
     ]
     grouped = defaultdict(list)
     for row in feasibility_rows:
@@ -626,6 +643,8 @@ def write_feasibility_envelope_summary(feasibility_rows, output_dir):
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
         "forecast_utilization_margin",
+        "forecast_correction_delay_s",
+        "forecast_correction_applied",
     ]
 
     all_on_by_envelope = {}

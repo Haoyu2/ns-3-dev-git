@@ -34,6 +34,8 @@ Current contribution track:
 - Forecast-error uncertainty margins that inflate the risk gate during
   forecast windows and recover unsafe underpredicted hard cases when the bound
   covers the forecast miss.
+- Measured-demand forecast correction delay for separating post-shift feedback
+  from pre-shift risk gating.
 - Time-averaged offered-load reporting so shifted and steady runs can be compared
   without mixing scenario definitions.
 
@@ -53,7 +55,7 @@ Useful first runs:
 ./ns3 run "uno-umb-dt-energy --policy=twin"
 ./ns3 run "uno-umb-dt-energy --policy=adaptive-twin"
 ./ns3 run "uno-umb-dt-energy --policy=twin --trafficProfile=center-burst --burstRateMultiplier=3.0"
-./ns3 run "uno-umb-dt-energy --policy=adaptive-twin --trafficProfile=right-edge-burst --burstRateMultiplier=1.5 --forecastLeadTime=1.0s --minForecastLeadTime=1.0s --forecastBurstRateMultiplier=1.5 --forecastBurstRateError=0.0 --forecastBurstRateUncertainty=0.25"
+./ns3 run "uno-umb-dt-energy --policy=adaptive-twin --trafficProfile=right-edge-burst --burstRateMultiplier=1.5 --forecastLeadTime=1.0s --minForecastLeadTime=1.0s --forecastBurstRateMultiplier=1.5 --forecastBurstRateError=0.0 --forecastBurstRateUncertainty=0.25 --forecastCorrectionDelay=0.0s"
 ```
 
 CSV outputs:
@@ -93,7 +95,8 @@ python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
   --min-forecast-lead-times=0.0s,1.0s \
   --forecast-burst-rate-multipliers=0.0,1.5,2.0 \
   --forecast-burst-rate-errors=-0.25,0.0,0.25 \
-  --forecast-burst-rate-uncertainties=0.0,0.25
+  --forecast-burst-rate-uncertainties=0.0,0.25 \
+  --forecast-correction-delays=off,0.0s
 ```
 
 Analyze an aggregate CSV:
@@ -134,6 +137,8 @@ Experiment notes:
   sweep around the gated right-edge transition.
 - `experiments/forecast-uncertainty-margin.md`: forecast-error uncertainty
   margin that recovers underpredicted hard right-edge transitions.
+- `experiments/forecast-correction-delay.md`: measured-demand correction at
+  burst start versus pre-burst uncertainty margin.
 
 Near-term extension list:
 

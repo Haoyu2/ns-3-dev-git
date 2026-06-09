@@ -197,6 +197,7 @@ main(int argc, char* argv[])
     double forecastBurstRateMultiplier = 0.0;
     double forecastBurstRateError = 0.0;
     double forecastBurstRateUncertainty = 0.0;
+    Time forecastCorrectionDelay = Seconds(-1.0);
     double burstRateMultiplier = 3.0;
     std::string summaryCsv = "uno-umb-dt-energy-summary.csv";
     std::string eventCsv = "uno-umb-dt-energy-events.csv";
@@ -234,6 +235,10 @@ main(int argc, char* argv[])
     cmd.AddValue("forecastBurstRateUncertainty",
                  "Relative uncertainty bound on forecasted burst excess load",
                  forecastBurstRateUncertainty);
+    cmd.AddValue("forecastCorrectionDelay",
+                 "Delay after traffic-shift start before correcting forecasted demand; negative "
+                 "disables correction",
+                 forecastCorrectionDelay);
     cmd.AddValue("burstRateMultiplier",
                  "Multiplier for shifted-UE offered load",
                  burstRateMultiplier);
@@ -309,6 +314,9 @@ main(int argc, char* argv[])
                     "forecastBurstRateError must be at least -1.0.");
     NS_ABORT_MSG_IF(forecastBurstRateUncertainty < 0.0,
                     "forecastBurstRateUncertainty must be non-negative.");
+    NS_ABORT_MSG_IF(forecastCorrectionDelay >= Seconds(0) &&
+                        shiftStart + forecastCorrectionDelay >= shiftStop,
+                    "forecastCorrectionDelay must correct before shiftStop.");
     NS_ABORT_MSG_IF(burstRateMultiplier < 1.0, "burstRateMultiplier must be at least 1.0.");
     NS_ABORT_MSG_IF(cellCapacityMbps <= 0.0, "cellCapacityMbps must be positive.");
     NS_ABORT_MSG_IF(adaptiveMinUncertaintyScale <= 0.0,
@@ -433,6 +441,13 @@ main(int argc, char* argv[])
             forecastBurstRateUncertainty;
         forecastUtilizationMargin = forecastUncertainExtraLoadMbps / cellCapacityMbps;
     }
+    const bool forecastCorrectionApplied =
+        burstEnabled && forecastCorrectionDelay >= Seconds(0) &&
+        shiftStart + forecastCorrectionDelay < shiftStop;
+    const Time forecastCorrectionTime =
+        forecastCorrectionApplied ? shiftStart + forecastCorrectionDelay : Seconds(-1.0);
+    const Time forecastMarginStop =
+        forecastCorrectionApplied ? forecastCorrectionTime : shiftStop;
     std::vector<double> ueRatesMbps(numberOfUes, ueRateMbps);
     for (uint32_t u = 0; u < ueLteDevs.GetN(); ++u)
     {
@@ -525,7 +540,7 @@ main(int argc, char* argv[])
                             &SetControllerForecastUtilizationMargin,
                             &controller,
                             forecastUtilizationMargin);
-        Simulator::Schedule(shiftStop,
+        Simulator::Schedule(forecastMarginStop,
                             &SetControllerForecastUtilizationMargin,
                             &controller,
                             0.0);
@@ -536,6 +551,14 @@ main(int argc, char* argv[])
                                 &controller,
                                 ueIndex,
                                 ueRateMbps * controllerBurstRateMultiplier);
+            if (forecastCorrectionApplied)
+            {
+                Simulator::Schedule(forecastCorrectionTime,
+                                    &SetControllerUeRate,
+                                    &controller,
+                                    ueIndex,
+                                    ueRateMbps * burstRateMultiplier);
+            }
             Simulator::Schedule(shiftStop, &SetControllerUeRate, &controller, ueIndex, ueRateMbps);
         }
     }
@@ -594,6 +617,8 @@ main(int argc, char* argv[])
                << "min_forecast_lead_time_s,forecast_lead_applied,"
                << "forecast_burst_rate_multiplier,forecast_burst_rate_error,"
                << "forecast_burst_rate_uncertainty,forecast_utilization_margin,"
+               << "forecast_correction_delay_s,forecast_correction_applied,"
+               << "forecast_correction_time_s,"
                << "controller_shift_start_s,burst_duration_s,"
                << "uncertainty_scale,adaptive_min_uncertainty_scale,"
                << "adaptive_max_uncertainty_scale,adaptive_load_shock_gain,"
@@ -613,6 +638,9 @@ main(int argc, char* argv[])
                << "," << (forecastLeadApplied ? 1 : 0) << ","
                << controllerBurstRateMultiplier << "," << forecastBurstRateError << ","
                << forecastBurstRateUncertainty << "," << forecastUtilizationMargin << ","
+               << forecastCorrectionDelay.GetSeconds() << ","
+               << (forecastCorrectionApplied ? 1 : 0) << ","
+               << forecastCorrectionTime.GetSeconds() << ","
                << controllerShiftStart.GetSeconds() << "," << burstDurationSeconds << ","
                << uncertaintyScale << ","
                << adaptiveMinUncertaintyScale << "," << adaptiveMaxUncertaintyScale << ","

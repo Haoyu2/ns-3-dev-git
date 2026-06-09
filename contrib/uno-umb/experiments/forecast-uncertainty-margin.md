@@ -129,6 +129,5 @@ The forecast path now has four separable controls:
 - ``forecastBurstRateUncertainty`` inflates the risk gate when the forecast
   magnitude is uncertain.
 
-The next step is to broaden this margin sweep across more traffic profiles and
-to compare fixed bounds against an online bound estimated from recent forecast
-misses.
+The follow-on measured-demand correction delay is recorded in
+`forecast-correction-delay.md`.

@@ -39,6 +39,10 @@ def as_seconds(value):
     return float(value[:-1] if value.endswith("s") else value)
 
 
+def as_optional_seconds(value):
+    return -1.0 if value == "off" else as_seconds(value)
+
+
 def shifted_ue_count(profile, ues, low_load_ues=2, number_of_enbs=3):
     if profile == "steady":
         return 0
@@ -74,6 +78,7 @@ def make_failure_row(
     forecast_burst_rate_multiplier,
     forecast_burst_rate_error,
     forecast_burst_rate_uncertainty,
+    forecast_correction_delay,
     traffic_profile,
     burst_rate_multiplier,
     shift_start,
@@ -90,6 +95,7 @@ def make_failure_row(
     shift_stop_s = as_seconds(shift_stop)
     forecast_lead_time_s = as_seconds(forecast_lead_time)
     min_forecast_lead_time_s = as_seconds(min_forecast_lead_time)
+    forecast_correction_delay_s = as_optional_seconds(forecast_correction_delay)
     measurement_start_s = 0.7
     measurement_stop_s = max(sim_time_s - 0.1, measurement_start_s)
     measurement_s = max(measurement_stop_s - measurement_start_s, 1.0)
@@ -131,6 +137,17 @@ def make_failure_row(
             * forecast_burst_rate_uncertainty
         )
         forecast_utilization_margin = forecast_uncertain_extra_load_mbps / 18.0
+    forecast_correction_time_s = (
+        shift_start_s + forecast_correction_delay_s
+        if forecast_correction_delay_s >= 0.0
+        else -1.0
+    )
+    forecast_correction_applied = (
+        shift_ues > 0
+        and burst_rate_multiplier > 1.0
+        and forecast_correction_delay_s >= 0.0
+        and forecast_correction_time_s < shift_stop_s
+    )
 
     return {
         "policy": policy,
@@ -156,6 +173,11 @@ def make_failure_row(
         "forecast_burst_rate_error": forecast_burst_rate_error,
         "forecast_burst_rate_uncertainty": forecast_burst_rate_uncertainty,
         "forecast_utilization_margin": forecast_utilization_margin,
+        "forecast_correction_delay_s": forecast_correction_delay_s,
+        "forecast_correction_applied": 1 if forecast_correction_applied else 0,
+        "forecast_correction_time_s": (
+            forecast_correction_time_s if forecast_correction_applied else -1.0
+        ),
         "controller_shift_start_s": controller_shift_start_s,
         "burst_duration_s": burst_duration_s,
         "uncertainty_scale": uncertainty_scale,
@@ -224,6 +246,7 @@ def main():
     parser.add_argument("--forecast-burst-rate-multipliers", default="0.0")
     parser.add_argument("--forecast-burst-rate-errors", default="0.0")
     parser.add_argument("--forecast-burst-rate-uncertainties", default="0.0")
+    parser.add_argument("--forecast-correction-delays", default="off")
     parser.add_argument("--traffic-profiles", default="steady,center-burst")
     parser.add_argument("--burst-rate-multipliers", default="3.0")
     parser.add_argument("--shift-start", default="3.0s")
@@ -266,6 +289,7 @@ def main():
         args.forecast_burst_rate_uncertainties,
         float,
     )
+    forecast_correction_delays = split_csv(args.forecast_correction_delays)
     traffic_profiles = split_csv(args.traffic_profiles)
     burst_rate_multipliers = split_csv(args.burst_rate_multipliers, float)
 
@@ -301,6 +325,7 @@ def main():
             forecast_burst_rate_multipliers,
             forecast_burst_rate_errors,
             forecast_burst_rate_uncertainties,
+            forecast_correction_delays,
             traffic_profiles,
             burst_rate_multipliers,
         )
@@ -326,6 +351,7 @@ def main():
         forecast_burst_rate_multiplier,
         forecast_burst_rate_error,
         forecast_burst_rate_uncertainty,
+        forecast_correction_delay,
         traffic_profile,
         burst_rate_multiplier,
     ) in enumerate(combinations, start=1):
@@ -352,6 +378,7 @@ def main():
             forecast_burst_rate_multiplier,
             forecast_burst_rate_error,
             forecast_burst_rate_uncertainty,
+            forecast_correction_delay,
             traffic_profile,
             effective_burst_rate_multiplier,
         )
@@ -372,10 +399,16 @@ def main():
             f"-fburst{forecast_burst_rate_multiplier}"
             f"-ferr{forecast_burst_rate_error}"
             f"-func{forecast_burst_rate_uncertainty}"
+            f"-fcorr{forecast_correction_delay}"
         ).replace(".", "p")
         summary_csv = out_dir / f"{run_id}-summary.csv"
         event_csv = out_dir / f"{run_id}-events.csv"
         run_log = out_dir / f"{run_id}.log"
+        correction_arg = (
+            ""
+            if forecast_correction_delay == "off"
+            else f"--forecastCorrectionDelay={forecast_correction_delay} "
+        )
         program = (
             "uno-umb-dt-energy "
             f"--policy={policy} "
@@ -397,6 +430,7 @@ def main():
             f"--forecastBurstRateMultiplier={forecast_burst_rate_multiplier} "
             f"--forecastBurstRateError={forecast_burst_rate_error} "
             f"--forecastBurstRateUncertainty={forecast_burst_rate_uncertainty} "
+            f"{correction_arg}"
             f"--trafficProfile={traffic_profile} "
             f"--burstRateMultiplier={effective_burst_rate_multiplier} "
             f"--shiftStart={args.shift_start} "
@@ -427,6 +461,7 @@ def main():
                 "forecast_burst_rate_multiplier": forecast_burst_rate_multiplier,
                 "forecast_burst_rate_error": forecast_burst_rate_error,
                 "forecast_burst_rate_uncertainty": forecast_burst_rate_uncertainty,
+                "forecast_correction_delay": forecast_correction_delay,
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,
                 "command": ["./ns3", "run", program],
@@ -463,6 +498,7 @@ def main():
                     forecast_burst_rate_multiplier=forecast_burst_rate_multiplier,
                     forecast_burst_rate_error=forecast_burst_rate_error,
                     forecast_burst_rate_uncertainty=forecast_burst_rate_uncertainty,
+                    forecast_correction_delay=forecast_correction_delay,
                     traffic_profile=traffic_profile,
                     burst_rate_multiplier=effective_burst_rate_multiplier,
                     shift_start=args.shift_start,
@@ -499,6 +535,7 @@ def main():
                 "min_forecast_lead_time_s": as_seconds(min_forecast_lead_time),
                 "forecast_burst_rate_error": forecast_burst_rate_error,
                 "forecast_burst_rate_uncertainty": forecast_burst_rate_uncertainty,
+                "forecast_correction_delay_s": as_optional_seconds(forecast_correction_delay),
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,
                 "shift_start": args.shift_start,

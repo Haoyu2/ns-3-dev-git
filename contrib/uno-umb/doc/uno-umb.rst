@@ -68,7 +68,10 @@ positive values overestimate it.  The ``forecastBurstRateUncertainty`` option
 adds a utilization uncertainty margin during the forecast window based on a
 relative bound on forecasted excess burst load.  The ``minForecastLeadTime``
 option can reject too-short forecast leads so that a forecast is not applied
-early unless it gives the controller enough settling time.
+early unless it gives the controller enough settling time.  The
+``forecastCorrectionDelay`` option can update the controller to the actual
+burst load after the traffic shift starts; negative values leave correction
+disabled.
 
 Sleeping a cell is modeled by requesting X2 handovers for served UEs and then
 reducing the eNB transmit power.  Energy is accounted analytically from active
@@ -153,8 +156,9 @@ Summary CSV output records whether demand-change reevaluation is enabled and
 the configured handover guard interval.  It also records the forecast lead time,
 minimum actionable forecast lead, whether the lead was applied, forecasted
 burst multiplier, forecast burst-rate error, forecast burst-rate uncertainty,
-forecast utilization margin, and controller-side shift start for anticipated
-traffic shifts.
+forecast utilization margin, measured-demand correction delay, whether the
+correction was applied, and controller-side shift start for anticipated traffic
+shifts.
 
 Examples and Tests
 ------------------

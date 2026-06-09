@@ -187,6 +187,7 @@ main(int argc, char* argv[])
     Time shiftStart = Seconds(3.0);
     Time shiftStop = Seconds(10.0);
     Time forecastLeadTime = Seconds(0.0);
+    double forecastBurstRateMultiplier = 0.0;
     double burstRateMultiplier = 3.0;
     std::string summaryCsv = "uno-umb-dt-energy-summary.csv";
     std::string eventCsv = "uno-umb-dt-energy-events.csv";
@@ -212,6 +213,9 @@ main(int argc, char* argv[])
     cmd.AddValue("forecastLeadTime",
                  "Controller demand-forecast lead time before traffic-shift start",
                  forecastLeadTime);
+    cmd.AddValue("forecastBurstRateMultiplier",
+                 "Controller-side burst multiplier forecast; 0 uses burstRateMultiplier",
+                 forecastBurstRateMultiplier);
     cmd.AddValue("burstRateMultiplier",
                  "Multiplier for shifted-UE offered load",
                  burstRateMultiplier);
@@ -279,6 +283,9 @@ main(int argc, char* argv[])
     NS_ABORT_MSG_IF(controlStart <= appStart, "controlStart should be later than appStart.");
     NS_ABORT_MSG_IF(shiftStop <= shiftStart, "shiftStop must be later than shiftStart.");
     NS_ABORT_MSG_IF(forecastLeadTime < Seconds(0), "forecastLeadTime must be non-negative.");
+    NS_ABORT_MSG_IF(forecastBurstRateMultiplier < 0.0 ||
+                        (forecastBurstRateMultiplier > 0.0 && forecastBurstRateMultiplier < 1.0),
+                    "forecastBurstRateMultiplier must be 0 or at least 1.0.");
     NS_ABORT_MSG_IF(burstRateMultiplier < 1.0, "burstRateMultiplier must be at least 1.0.");
     NS_ABORT_MSG_IF(cellCapacityMbps <= 0.0, "cellCapacityMbps must be positive.");
     NS_ABORT_MSG_IF(adaptiveMinUncertaintyScale <= 0.0,
@@ -378,6 +385,8 @@ main(int argc, char* argv[])
     const bool burstEnabled = !shiftedUes.empty() && burstRateMultiplier > 1.0;
     const double burstExtraRateMbps =
         burstEnabled ? ueRateMbps * (burstRateMultiplier - 1.0) : 0.0;
+    const double controllerBurstRateMultiplier =
+        (forecastBurstRateMultiplier > 0.0) ? forecastBurstRateMultiplier : burstRateMultiplier;
     Time controllerShiftStart = shiftStart;
     if (burstEnabled && forecastLeadTime > Seconds(0))
     {
@@ -480,7 +489,7 @@ main(int argc, char* argv[])
                                 &SetControllerUeRate,
                                 &controller,
                                 ueIndex,
-                                ueRateMbps * burstRateMultiplier);
+                                ueRateMbps * controllerBurstRateMultiplier);
             Simulator::Schedule(shiftStop, &SetControllerUeRate, &controller, ueIndex, ueRateMbps);
         }
     }
@@ -536,7 +545,7 @@ main(int argc, char* argv[])
     summaryOut << "policy,traffic_profile,seed,run,enbs,ues,shift_ues,sim_time_s,"
                << "offered_load_mbps,base_offered_load_mbps,burst_extra_load_mbps,"
                << "burst_rate_multiplier,shift_start_s,shift_stop_s,forecast_lead_time_s,"
-               << "controller_shift_start_s,burst_duration_s,"
+               << "forecast_burst_rate_multiplier,controller_shift_start_s,burst_duration_s,"
                << "uncertainty_scale,adaptive_min_uncertainty_scale,"
                << "adaptive_max_uncertainty_scale,adaptive_load_shock_gain,"
                << "adaptive_utilization_gain,adaptive_relaxation,"
@@ -551,8 +560,9 @@ main(int argc, char* argv[])
                << "," << offeredLoadMbps << "," << baseOfferedLoadMbps << ","
                << burstExtraLoadMbps << "," << burstRateMultiplier << ","
                << shiftStart.GetSeconds() << "," << shiftStop.GetSeconds() << ","
-               << forecastLeadTime.GetSeconds() << "," << controllerShiftStart.GetSeconds()
-               << "," << burstDurationSeconds << "," << uncertaintyScale << ","
+               << forecastLeadTime.GetSeconds() << "," << controllerBurstRateMultiplier << ","
+               << controllerShiftStart.GetSeconds() << "," << burstDurationSeconds << ","
+               << uncertaintyScale << ","
                << adaptiveMinUncertaintyScale << "," << adaptiveMaxUncertaintyScale << ","
                << adaptiveLoadShockGain << "," << adaptiveUtilizationGain << ","
                << adaptiveRelaxation << "," << adaptiveLatentLoadThreshold << ","

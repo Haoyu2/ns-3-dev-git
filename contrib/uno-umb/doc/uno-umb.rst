@@ -57,9 +57,11 @@ state is still settling.
 
 The example can also give the controller a forecast lead time before a traffic
 shift starts.  With ``forecastLeadTime`` greater than zero, the controller-side
-offered-load estimate changes before the burst applications start.  This models
-an anticipated demand shift and lets handovers settle before the measured burst
-traffic arrives.
+offered-load estimate changes before the burst applications start.  The
+``forecastBurstRateMultiplier`` option can intentionally under- or over-predict
+the burst magnitude while the application traffic still uses
+``burstRateMultiplier``.  This models an anticipated demand shift and lets
+handover timing and forecast error be evaluated separately.
 
 Sleeping a cell is modeled by requesting X2 handovers for served UEs and then
 reducing the eNB transmit power.  Energy is accounted analytically from active
@@ -139,8 +141,9 @@ utilization for each interval.
 The event log also includes latent preferred-cell load and the estimated peak
 utilization relief from waking a sleeping cell.
 Summary CSV output records whether demand-change reevaluation is enabled and
-the configured handover guard interval.  It also records the forecast lead time
-and controller-side shift start for anticipated traffic shifts.
+the configured handover guard interval.  It also records the forecast lead time,
+forecasted burst multiplier, and controller-side shift start for anticipated
+traffic shifts.
 
 Examples and Tests
 ------------------

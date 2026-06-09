@@ -48,7 +48,7 @@ Useful first runs:
 ./ns3 run "uno-umb-dt-energy --policy=twin"
 ./ns3 run "uno-umb-dt-energy --policy=adaptive-twin"
 ./ns3 run "uno-umb-dt-energy --policy=twin --trafficProfile=center-burst --burstRateMultiplier=3.0"
-./ns3 run "uno-umb-dt-energy --policy=adaptive-twin --trafficProfile=right-edge-burst --burstRateMultiplier=1.5 --forecastLeadTime=1.0s"
+./ns3 run "uno-umb-dt-energy --policy=adaptive-twin --trafficProfile=right-edge-burst --burstRateMultiplier=1.5 --forecastLeadTime=1.0s --forecastBurstRateMultiplier=1.25"
 ```
 
 CSV outputs:
@@ -84,7 +84,8 @@ python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
   --uncertainty-scales=0.5,1.0,1.5 \
   --traffic-profiles=steady,center-burst,edge-burst,global-burst \
   --burst-rate-multipliers=2.0,3.0,4.0 \
-  --forecast-lead-times=0.0s,0.5s,1.0s
+  --forecast-lead-times=0.0s,0.5s,1.0s \
+  --forecast-burst-rate-multipliers=0.0,1.5,2.0
 ```
 
 Analyze an aggregate CSV:
@@ -115,6 +116,8 @@ Experiment notes:
   for guarded event-triggered latent-demand wakeup.
 - `experiments/replicated-feasibility-envelope.md`: replicated burst-profile
   envelope plus right-edge forecast lead-time ablation.
+- `experiments/forecast-error-calibration.md`: right-edge calibration for
+  under- and over-predicted traffic-shift magnitude.
 
 Near-term extension list:
 

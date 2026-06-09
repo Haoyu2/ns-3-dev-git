@@ -66,6 +66,7 @@ def is_failed_run(row):
 
 def normalize_row(row):
     row.setdefault("forecast_lead_time_s", "0.0")
+    row.setdefault("forecast_burst_rate_multiplier", row.get("burst_rate_multiplier", "1.0"))
     row.setdefault("controller_shift_start_s", row.get("shift_start_s", ""))
     return row
 
@@ -169,6 +170,7 @@ def write_run_status_summary(rows, output_dir):
         "adaptive_latent_load_threshold",
         "adaptive_wake_relief_threshold",
         "forecast_lead_time_s",
+        "forecast_burst_rate_multiplier",
     ]
     grouped = defaultdict(list)
     for row in rows:
@@ -266,6 +268,7 @@ def write_scenario_summary(rows, output_dir):
         "shift_start_s",
         "shift_stop_s",
         "forecast_lead_time_s",
+        "forecast_burst_rate_multiplier",
         "controller_shift_start_s",
     ]
     summary_rows = summarize_rows(rows, group_fields)
@@ -310,6 +313,7 @@ def write_pairwise_comparison(rows, output_dir):
         "shift_start_s",
         "shift_stop_s",
         "forecast_lead_time_s",
+        "forecast_burst_rate_multiplier",
         "controller_shift_start_s",
     ]
     by_scenario = defaultdict(dict)
@@ -425,6 +429,7 @@ def write_feasibility_comparison(rows, output_dir):
         "adaptive_latent_load_threshold",
         "adaptive_wake_relief_threshold",
         "forecast_lead_time_s",
+        "forecast_burst_rate_multiplier",
         "all_on_throughput_mbps",
         "all_on_loss_ratio",
         "all_on_sla_violation",
@@ -466,6 +471,7 @@ def write_feasibility_comparison(rows, output_dir):
                 "adaptive_latent_load_threshold": row.get("adaptive_latent_load_threshold", ""),
                 "adaptive_wake_relief_threshold": row.get("adaptive_wake_relief_threshold", ""),
                 "forecast_lead_time_s": row.get("forecast_lead_time_s", ""),
+                "forecast_burst_rate_multiplier": row.get("forecast_burst_rate_multiplier", ""),
                 "all_on_throughput_mbps": as_float(all_on, "throughput_mbps"),
                 "all_on_loss_ratio": as_float(all_on, "loss_ratio"),
                 "all_on_sla_violation": all_on_sla_violation,
@@ -511,6 +517,7 @@ def write_feasible_policy_summary(feasibility_rows, output_dir):
         "adaptive_latent_load_threshold",
         "adaptive_wake_relief_threshold",
         "forecast_lead_time_s",
+        "forecast_burst_rate_multiplier",
     ]
     grouped = defaultdict(list)
     for row in feasibility_rows:
@@ -572,6 +579,7 @@ def write_feasibility_envelope_summary(feasibility_rows, output_dir):
         "adaptive_latent_load_threshold",
         "adaptive_wake_relief_threshold",
         "forecast_lead_time_s",
+        "forecast_burst_rate_multiplier",
     ]
 
     all_on_by_envelope = {}

@@ -29,6 +29,8 @@ Current contribution track:
   handover requests.
 - Forecast lead-time control for anticipated traffic shifts so the controller
   can settle handovers before burst traffic arrives.
+- Forecast-magnitude error control for testing robustness to under- and
+  over-predicted demand shifts without changing the actual offered load.
 - Time-averaged offered-load reporting so shifted and steady runs can be compared
   without mixing scenario definitions.
 
@@ -48,7 +50,7 @@ Useful first runs:
 ./ns3 run "uno-umb-dt-energy --policy=twin"
 ./ns3 run "uno-umb-dt-energy --policy=adaptive-twin"
 ./ns3 run "uno-umb-dt-energy --policy=twin --trafficProfile=center-burst --burstRateMultiplier=3.0"
-./ns3 run "uno-umb-dt-energy --policy=adaptive-twin --trafficProfile=right-edge-burst --burstRateMultiplier=1.5 --forecastLeadTime=1.0s --minForecastLeadTime=1.0s --forecastBurstRateMultiplier=1.5"
+./ns3 run "uno-umb-dt-energy --policy=adaptive-twin --trafficProfile=right-edge-burst --burstRateMultiplier=1.5 --forecastLeadTime=1.0s --minForecastLeadTime=1.0s --forecastBurstRateMultiplier=1.5 --forecastBurstRateError=0.0"
 ```
 
 CSV outputs:
@@ -86,7 +88,8 @@ python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
   --burst-rate-multipliers=2.0,3.0,4.0 \
   --forecast-lead-times=0.0s,0.5s,1.0s \
   --min-forecast-lead-times=0.0s,1.0s \
-  --forecast-burst-rate-multipliers=0.0,1.5,2.0
+  --forecast-burst-rate-multipliers=0.0,1.5,2.0 \
+  --forecast-burst-rate-errors=-0.25,0.0,0.25
 ```
 
 Analyze an aggregate CSV:
@@ -123,6 +126,8 @@ Experiment notes:
   time and forecasted burst magnitude.
 - `experiments/forecast-lead-gate.md`: minimum actionable lead gate that avoids
   applying forecasts too close to burst start.
+- `experiments/forecast-magnitude-robustness.md`: relative forecast-error
+  sweep around the gated right-edge transition.
 
 Near-term extension list:
 

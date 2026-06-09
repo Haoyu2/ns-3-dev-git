@@ -124,5 +124,5 @@ The result adds an important limitation and contribution path:
   to `4.784%` on average.
 
 The follow-on lead-time/forecast-magnitude surface is recorded in
-`lead-forecast-surface.md`.  A later step should add forecast-noise models
-instead of fixed multipliers.
+`lead-forecast-surface.md`.  The relative forecast-error sweep is recorded in
+`forecast-magnitude-robustness.md`.

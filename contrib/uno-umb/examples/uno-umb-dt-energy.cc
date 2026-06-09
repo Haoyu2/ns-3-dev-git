@@ -189,6 +189,7 @@ main(int argc, char* argv[])
     Time forecastLeadTime = Seconds(0.0);
     Time minForecastLeadTime = Seconds(0.0);
     double forecastBurstRateMultiplier = 0.0;
+    double forecastBurstRateError = 0.0;
     double burstRateMultiplier = 3.0;
     std::string summaryCsv = "uno-umb-dt-energy-summary.csv";
     std::string eventCsv = "uno-umb-dt-energy-events.csv";
@@ -220,6 +221,9 @@ main(int argc, char* argv[])
     cmd.AddValue("forecastBurstRateMultiplier",
                  "Controller-side burst multiplier forecast; 0 uses burstRateMultiplier",
                  forecastBurstRateMultiplier);
+    cmd.AddValue("forecastBurstRateError",
+                 "Relative error on forecast burst excess load; -1 removes forecasted excess",
+                 forecastBurstRateError);
     cmd.AddValue("burstRateMultiplier",
                  "Multiplier for shifted-UE offered load",
                  burstRateMultiplier);
@@ -291,6 +295,8 @@ main(int argc, char* argv[])
     NS_ABORT_MSG_IF(forecastBurstRateMultiplier < 0.0 ||
                         (forecastBurstRateMultiplier > 0.0 && forecastBurstRateMultiplier < 1.0),
                     "forecastBurstRateMultiplier must be 0 or at least 1.0.");
+    NS_ABORT_MSG_IF(forecastBurstRateError < -1.0,
+                    "forecastBurstRateError must be at least -1.0.");
     NS_ABORT_MSG_IF(burstRateMultiplier < 1.0, "burstRateMultiplier must be at least 1.0.");
     NS_ABORT_MSG_IF(cellCapacityMbps <= 0.0, "cellCapacityMbps must be positive.");
     NS_ABORT_MSG_IF(adaptiveMinUncertaintyScale <= 0.0,
@@ -390,8 +396,12 @@ main(int argc, char* argv[])
     const bool burstEnabled = !shiftedUes.empty() && burstRateMultiplier > 1.0;
     const double burstExtraRateMbps =
         burstEnabled ? ueRateMbps * (burstRateMultiplier - 1.0) : 0.0;
-    const double controllerBurstRateMultiplier =
+    const double forecastBaseBurstRateMultiplier =
         (forecastBurstRateMultiplier > 0.0) ? forecastBurstRateMultiplier : burstRateMultiplier;
+    const double controllerBurstRateMultiplier =
+        1.0 + std::max((forecastBaseBurstRateMultiplier - 1.0) *
+                           (1.0 + forecastBurstRateError),
+                       0.0);
     Time controllerShiftStart = shiftStart;
     const bool forecastLeadApplied =
         burstEnabled && forecastLeadTime > Seconds(0) && forecastLeadTime >= minForecastLeadTime;
@@ -553,7 +563,8 @@ main(int argc, char* argv[])
                << "offered_load_mbps,base_offered_load_mbps,burst_extra_load_mbps,"
                << "burst_rate_multiplier,shift_start_s,shift_stop_s,forecast_lead_time_s,"
                << "min_forecast_lead_time_s,forecast_lead_applied,"
-               << "forecast_burst_rate_multiplier,controller_shift_start_s,burst_duration_s,"
+               << "forecast_burst_rate_multiplier,forecast_burst_rate_error,"
+               << "controller_shift_start_s,burst_duration_s,"
                << "uncertainty_scale,adaptive_min_uncertainty_scale,"
                << "adaptive_max_uncertainty_scale,adaptive_load_shock_gain,"
                << "adaptive_utilization_gain,adaptive_relaxation,"
@@ -570,8 +581,9 @@ main(int argc, char* argv[])
                << shiftStart.GetSeconds() << "," << shiftStop.GetSeconds() << ","
                << forecastLeadTime.GetSeconds() << "," << minForecastLeadTime.GetSeconds()
                << "," << (forecastLeadApplied ? 1 : 0) << ","
-               << controllerBurstRateMultiplier << "," << controllerShiftStart.GetSeconds()
-               << "," << burstDurationSeconds << "," << uncertaintyScale << ","
+               << controllerBurstRateMultiplier << "," << forecastBurstRateError << ","
+               << controllerShiftStart.GetSeconds() << "," << burstDurationSeconds << ","
+               << uncertaintyScale << ","
                << adaptiveMinUncertaintyScale << "," << adaptiveMaxUncertaintyScale << ","
                << adaptiveLoadShockGain << "," << adaptiveUtilizationGain << ","
                << adaptiveRelaxation << "," << adaptiveLatentLoadThreshold << ","

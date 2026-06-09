@@ -62,9 +62,11 @@ offered-load estimate changes before the burst applications start.  The
 the burst magnitude while the application traffic still uses
 ``burstRateMultiplier``.  This models an anticipated demand shift and lets
 handover timing and forecast error be evaluated separately.  The
-``minForecastLeadTime`` option can reject too-short forecast leads so that a
-forecast is not applied early unless it gives the controller enough settling
-time.
+``forecastBurstRateError`` option applies a relative error to the forecasted
+excess burst load, where ``-1.0`` removes the forecasted burst excess and
+positive values overestimate it.  The ``minForecastLeadTime`` option can reject
+too-short forecast leads so that a forecast is not applied early unless it gives
+the controller enough settling time.
 
 Sleeping a cell is modeled by requesting X2 handovers for served UEs and then
 reducing the eNB transmit power.  Energy is accounted analytically from active
@@ -146,8 +148,8 @@ utilization relief from waking a sleeping cell.
 Summary CSV output records whether demand-change reevaluation is enabled and
 the configured handover guard interval.  It also records the forecast lead time,
 minimum actionable forecast lead, whether the lead was applied, forecasted
-burst multiplier, and controller-side shift start for anticipated traffic
-shifts.
+burst multiplier, forecast burst-rate error, and controller-side shift start
+for anticipated traffic shifts.
 
 Examples and Tests
 ------------------

@@ -114,4 +114,5 @@ ahead.  The surface shows three regimes:
 
 This is a stronger paper contribution than the fixed one-second calibration:
 it identifies the joint safety boundary and gives a concrete next target for
-forecast-error-aware control.
+forecast-error-aware control.  A follow-on minimum-lead gate that rejects the
+harmful half-second forecast action is recorded in `forecast-lead-gate.md`.

@@ -70,6 +70,7 @@ def make_failure_row(
     adaptive_latent_load_threshold,
     adaptive_wake_relief_threshold,
     forecast_lead_time,
+    min_forecast_lead_time,
     forecast_burst_rate_multiplier,
     traffic_profile,
     burst_rate_multiplier,
@@ -86,6 +87,7 @@ def make_failure_row(
     shift_start_s = as_seconds(shift_start)
     shift_stop_s = as_seconds(shift_stop)
     forecast_lead_time_s = as_seconds(forecast_lead_time)
+    min_forecast_lead_time_s = as_seconds(min_forecast_lead_time)
     measurement_start_s = 0.7
     measurement_stop_s = max(sim_time_s - 0.1, measurement_start_s)
     measurement_s = max(measurement_stop_s - measurement_start_s, 1.0)
@@ -101,7 +103,13 @@ def make_failure_row(
         burst_duration_s / measurement_s
     )
     controller_shift_start_s = shift_start_s
-    if shift_ues > 0 and burst_rate_multiplier > 1.0 and forecast_lead_time_s > 0.0:
+    forecast_lead_applied = (
+        shift_ues > 0
+        and burst_rate_multiplier > 1.0
+        and forecast_lead_time_s > 0.0
+        and forecast_lead_time_s >= min_forecast_lead_time_s
+    )
+    if forecast_lead_applied:
         controller_shift_start_s = max(shift_start_s - forecast_lead_time_s, 0.6)
     controller_burst_rate_multiplier = (
         forecast_burst_rate_multiplier
@@ -127,6 +135,8 @@ def make_failure_row(
         "shift_start_s": shift_start_s,
         "shift_stop_s": shift_stop_s,
         "forecast_lead_time_s": forecast_lead_time_s,
+        "min_forecast_lead_time_s": min_forecast_lead_time_s,
+        "forecast_lead_applied": 1 if forecast_lead_applied else 0,
         "forecast_burst_rate_multiplier": controller_burst_rate_multiplier,
         "controller_shift_start_s": controller_shift_start_s,
         "burst_duration_s": burst_duration_s,
@@ -192,6 +202,7 @@ def main():
     parser.add_argument("--adaptive-latent-load-thresholds", default="4.0")
     parser.add_argument("--adaptive-wake-relief-thresholds", default="0.08")
     parser.add_argument("--forecast-lead-times", default="0.0s")
+    parser.add_argument("--min-forecast-lead-times", default="0.0s")
     parser.add_argument("--forecast-burst-rate-multipliers", default="0.0")
     parser.add_argument("--traffic-profiles", default="steady,center-burst")
     parser.add_argument("--burst-rate-multipliers", default="3.0")
@@ -228,6 +239,7 @@ def main():
     adaptive_latent_load_thresholds = split_csv(args.adaptive_latent_load_thresholds, float)
     adaptive_wake_relief_thresholds = split_csv(args.adaptive_wake_relief_thresholds, float)
     forecast_lead_times = split_csv(args.forecast_lead_times)
+    min_forecast_lead_times = split_csv(args.min_forecast_lead_times)
     forecast_burst_rate_multipliers = split_csv(args.forecast_burst_rate_multipliers, float)
     traffic_profiles = split_csv(args.traffic_profiles)
     burst_rate_multipliers = split_csv(args.burst_rate_multipliers, float)
@@ -260,6 +272,7 @@ def main():
             adaptive_latent_load_thresholds,
             adaptive_wake_relief_thresholds,
             forecast_lead_times,
+            min_forecast_lead_times,
             forecast_burst_rate_multipliers,
             traffic_profiles,
             burst_rate_multipliers,
@@ -282,6 +295,7 @@ def main():
         adaptive_latent_load_threshold,
         adaptive_wake_relief_threshold,
         forecast_lead_time,
+        min_forecast_lead_time,
         forecast_burst_rate_multiplier,
         traffic_profile,
         burst_rate_multiplier,
@@ -305,6 +319,7 @@ def main():
             adaptive_latent_load_threshold,
             adaptive_wake_relief_threshold,
             forecast_lead_time,
+            min_forecast_lead_time,
             forecast_burst_rate_multiplier,
             traffic_profile,
             effective_burst_rate_multiplier,
@@ -322,6 +337,7 @@ def main():
             f"-arelax{adaptive_relaxation}"
             f"-alatent{adaptive_latent_load_threshold}-arelief{adaptive_wake_relief_threshold}"
             f"-flead{forecast_lead_time}"
+            f"-minflead{min_forecast_lead_time}"
             f"-fburst{forecast_burst_rate_multiplier}"
         ).replace(".", "p")
         summary_csv = out_dir / f"{run_id}-summary.csv"
@@ -344,6 +360,7 @@ def main():
             f"--adaptiveLatentLoadThreshold={adaptive_latent_load_threshold} "
             f"--adaptiveWakeReliefThreshold={adaptive_wake_relief_threshold} "
             f"--forecastLeadTime={forecast_lead_time} "
+            f"--minForecastLeadTime={min_forecast_lead_time} "
             f"--forecastBurstRateMultiplier={forecast_burst_rate_multiplier} "
             f"--trafficProfile={traffic_profile} "
             f"--burstRateMultiplier={effective_burst_rate_multiplier} "
@@ -371,6 +388,7 @@ def main():
                 "adaptive_latent_load_threshold": adaptive_latent_load_threshold,
                 "adaptive_wake_relief_threshold": adaptive_wake_relief_threshold,
                 "forecast_lead_time": forecast_lead_time,
+                "min_forecast_lead_time": min_forecast_lead_time,
                 "forecast_burst_rate_multiplier": forecast_burst_rate_multiplier,
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,
@@ -404,6 +422,7 @@ def main():
                     adaptive_latent_load_threshold=adaptive_latent_load_threshold,
                     adaptive_wake_relief_threshold=adaptive_wake_relief_threshold,
                     forecast_lead_time=forecast_lead_time,
+                    min_forecast_lead_time=min_forecast_lead_time,
                     forecast_burst_rate_multiplier=forecast_burst_rate_multiplier,
                     traffic_profile=traffic_profile,
                     burst_rate_multiplier=effective_burst_rate_multiplier,
@@ -438,6 +457,7 @@ def main():
                 "adaptive_latent_load_threshold": adaptive_latent_load_threshold,
                 "adaptive_wake_relief_threshold": adaptive_wake_relief_threshold,
                 "forecast_lead_time_s": as_seconds(forecast_lead_time),
+                "min_forecast_lead_time_s": as_seconds(min_forecast_lead_time),
                 "forecast_burst_rate_multiplier": forecast_burst_rate_multiplier
                 if forecast_burst_rate_multiplier > 0.0
                 else effective_burst_rate_multiplier,

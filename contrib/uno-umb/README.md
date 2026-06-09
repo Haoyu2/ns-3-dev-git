@@ -48,7 +48,7 @@ Useful first runs:
 ./ns3 run "uno-umb-dt-energy --policy=twin"
 ./ns3 run "uno-umb-dt-energy --policy=adaptive-twin"
 ./ns3 run "uno-umb-dt-energy --policy=twin --trafficProfile=center-burst --burstRateMultiplier=3.0"
-./ns3 run "uno-umb-dt-energy --policy=adaptive-twin --trafficProfile=right-edge-burst --burstRateMultiplier=1.5 --forecastLeadTime=1.0s --forecastBurstRateMultiplier=1.25"
+./ns3 run "uno-umb-dt-energy --policy=adaptive-twin --trafficProfile=right-edge-burst --burstRateMultiplier=1.5 --forecastLeadTime=1.0s --minForecastLeadTime=1.0s --forecastBurstRateMultiplier=1.5"
 ```
 
 CSV outputs:
@@ -85,6 +85,7 @@ python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
   --traffic-profiles=steady,center-burst,edge-burst,global-burst \
   --burst-rate-multipliers=2.0,3.0,4.0 \
   --forecast-lead-times=0.0s,0.5s,1.0s \
+  --min-forecast-lead-times=0.0s,1.0s \
   --forecast-burst-rate-multipliers=0.0,1.5,2.0
 ```
 
@@ -120,6 +121,8 @@ Experiment notes:
   under- and over-predicted traffic-shift magnitude.
 - `experiments/lead-forecast-surface.md`: compact surface over forecast lead
   time and forecasted burst magnitude.
+- `experiments/forecast-lead-gate.md`: minimum actionable lead gate that avoids
+  applying forecasts too close to burst start.
 
 Near-term extension list:
 

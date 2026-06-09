@@ -187,6 +187,7 @@ main(int argc, char* argv[])
     Time shiftStart = Seconds(3.0);
     Time shiftStop = Seconds(10.0);
     Time forecastLeadTime = Seconds(0.0);
+    Time minForecastLeadTime = Seconds(0.0);
     double forecastBurstRateMultiplier = 0.0;
     double burstRateMultiplier = 3.0;
     std::string summaryCsv = "uno-umb-dt-energy-summary.csv";
@@ -213,6 +214,9 @@ main(int argc, char* argv[])
     cmd.AddValue("forecastLeadTime",
                  "Controller demand-forecast lead time before traffic-shift start",
                  forecastLeadTime);
+    cmd.AddValue("minForecastLeadTime",
+                 "Minimum lead time required before applying a forecast early",
+                 minForecastLeadTime);
     cmd.AddValue("forecastBurstRateMultiplier",
                  "Controller-side burst multiplier forecast; 0 uses burstRateMultiplier",
                  forecastBurstRateMultiplier);
@@ -283,6 +287,7 @@ main(int argc, char* argv[])
     NS_ABORT_MSG_IF(controlStart <= appStart, "controlStart should be later than appStart.");
     NS_ABORT_MSG_IF(shiftStop <= shiftStart, "shiftStop must be later than shiftStart.");
     NS_ABORT_MSG_IF(forecastLeadTime < Seconds(0), "forecastLeadTime must be non-negative.");
+    NS_ABORT_MSG_IF(minForecastLeadTime < Seconds(0), "minForecastLeadTime must be non-negative.");
     NS_ABORT_MSG_IF(forecastBurstRateMultiplier < 0.0 ||
                         (forecastBurstRateMultiplier > 0.0 && forecastBurstRateMultiplier < 1.0),
                     "forecastBurstRateMultiplier must be 0 or at least 1.0.");
@@ -388,7 +393,9 @@ main(int argc, char* argv[])
     const double controllerBurstRateMultiplier =
         (forecastBurstRateMultiplier > 0.0) ? forecastBurstRateMultiplier : burstRateMultiplier;
     Time controllerShiftStart = shiftStart;
-    if (burstEnabled && forecastLeadTime > Seconds(0))
+    const bool forecastLeadApplied =
+        burstEnabled && forecastLeadTime > Seconds(0) && forecastLeadTime >= minForecastLeadTime;
+    if (forecastLeadApplied)
     {
         controllerShiftStart = shiftStart - forecastLeadTime;
         if (controllerShiftStart < appStart)
@@ -545,6 +552,7 @@ main(int argc, char* argv[])
     summaryOut << "policy,traffic_profile,seed,run,enbs,ues,shift_ues,sim_time_s,"
                << "offered_load_mbps,base_offered_load_mbps,burst_extra_load_mbps,"
                << "burst_rate_multiplier,shift_start_s,shift_stop_s,forecast_lead_time_s,"
+               << "min_forecast_lead_time_s,forecast_lead_applied,"
                << "forecast_burst_rate_multiplier,controller_shift_start_s,burst_duration_s,"
                << "uncertainty_scale,adaptive_min_uncertainty_scale,"
                << "adaptive_max_uncertainty_scale,adaptive_load_shock_gain,"
@@ -560,9 +568,10 @@ main(int argc, char* argv[])
                << "," << offeredLoadMbps << "," << baseOfferedLoadMbps << ","
                << burstExtraLoadMbps << "," << burstRateMultiplier << ","
                << shiftStart.GetSeconds() << "," << shiftStop.GetSeconds() << ","
-               << forecastLeadTime.GetSeconds() << "," << controllerBurstRateMultiplier << ","
-               << controllerShiftStart.GetSeconds() << "," << burstDurationSeconds << ","
-               << uncertaintyScale << ","
+               << forecastLeadTime.GetSeconds() << "," << minForecastLeadTime.GetSeconds()
+               << "," << (forecastLeadApplied ? 1 : 0) << ","
+               << controllerBurstRateMultiplier << "," << controllerShiftStart.GetSeconds()
+               << "," << burstDurationSeconds << "," << uncertaintyScale << ","
                << adaptiveMinUncertaintyScale << "," << adaptiveMaxUncertaintyScale << ","
                << adaptiveLoadShockGain << "," << adaptiveUtilizationGain << ","
                << adaptiveRelaxation << "," << adaptiveLatentLoadThreshold << ","

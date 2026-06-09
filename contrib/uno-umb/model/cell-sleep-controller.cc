@@ -90,7 +90,8 @@ CellSleepController::CellSleepController(const CellSleepControllerConfig& config
       m_ueRatesMbps(config.ueRateMbpsByUe),
       m_lastHandoverRequestSeconds(config.servingEnb.size(), -1.0e9),
       m_restoreRetryPending(config.enbNodes.GetN(), false),
-      m_effectiveUncertaintyScale(config.uncertaintyScale)
+      m_effectiveUncertaintyScale(config.uncertaintyScale),
+      m_forecastUtilizationMargin(config.forecastUtilizationMargin)
 {
     if (m_preferredEnb.empty())
     {
@@ -105,6 +106,8 @@ CellSleepController::CellSleepController(const CellSleepControllerConfig& config
     NS_ABORT_MSG_IF(m_ueRatesMbps.size() != m_config.servingEnb.size(),
                     "ueRateMbpsByUe must be empty or match the number of UEs");
     NS_ABORT_MSG_IF(m_config.cellCapacityMbps <= 0.0, "cellCapacityMbps must be positive");
+    NS_ABORT_MSG_IF(m_config.forecastUtilizationMargin < 0.0,
+                    "forecastUtilizationMargin must be non-negative");
     NS_ABORT_MSG_IF(m_config.adaptiveMinUncertaintyScale <= 0.0,
                     "adaptiveMinUncertaintyScale must be positive");
     NS_ABORT_MSG_IF(m_config.adaptiveMaxUncertaintyScale < m_config.adaptiveMinUncertaintyScale,
@@ -162,6 +165,14 @@ CellSleepController::SetUeRateMbps(uint32_t ueIndex, double rateMbps)
     ScheduleDemandReevaluation();
 }
 
+void
+CellSleepController::SetForecastUtilizationMargin(double margin)
+{
+    NS_ABORT_MSG_IF(margin < 0.0, "Forecast utilization margin must be non-negative");
+    m_forecastUtilizationMargin = margin;
+    ScheduleDemandReevaluation();
+}
+
 double
 CellSleepController::GetTotalOfferedLoadMbps() const
 {
@@ -177,7 +188,8 @@ std::string
 CellSleepController::GetEventCsvHeader()
 {
     return "time_s,policy,cell,action,reason,was_active,load_mbps,max_utilization,"
-           "min_coverage_margin_db,utilization_uncertainty,coverage_uncertainty_db,"
+           "min_coverage_margin_db,utilization_uncertainty,forecast_utilization_uncertainty,"
+           "coverage_uncertainty_db,"
            "uncertainty_scale,load_shock,max_observed_utilization,latent_load_mbps,"
            "wake_relief,twin_safe";
 }
@@ -534,9 +546,11 @@ CellSleepController::EstimateSleepRisk(uint32_t candidateCell,
         }
     }
 
+    estimate.forecastUtilizationUncertainty = m_forecastUtilizationMargin;
     estimate.utilizationUncertainty =
         GetEffectiveUncertaintyScale() * (0.04 + 0.10 * estimate.maxUtilization +
-                                          0.06 * (farthestOffloadMeters / 1000.0));
+                                          0.06 * (farthestOffloadMeters / 1000.0)) +
+        estimate.forecastUtilizationUncertainty;
     estimate.coverageUncertaintyDb =
         GetEffectiveUncertaintyScale() * (1.0 + 2.0 * (farthestOffloadMeters / 1000.0));
     estimate.safe =
@@ -737,7 +751,9 @@ CellSleepController::WriteDecision(uint32_t cell,
                 << m_config.policyName << "," << cell << "," << action << "," << reason << ","
                 << (m_active[cell] ? 1 : 0) << "," << loadMbps << ","
                 << estimate.maxUtilization << "," << estimate.minCoverageMarginDb << ","
-                << estimate.utilizationUncertainty << "," << estimate.coverageUncertaintyDb << ","
+                << estimate.utilizationUncertainty << ","
+                << estimate.forecastUtilizationUncertainty << ","
+                << estimate.coverageUncertaintyDb << ","
                 << GetEffectiveUncertaintyScale() << "," << m_lastLoadShock << ","
                 << m_lastMaxUtilization << "," << estimate.latentLoadMbps << ","
                 << estimate.wakeRelief << ","

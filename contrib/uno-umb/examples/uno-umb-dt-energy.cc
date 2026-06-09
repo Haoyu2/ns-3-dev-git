@@ -143,6 +143,12 @@ SetControllerUeRate(CellSleepController* controller, uint32_t ueIndex, double ra
     controller->SetUeRateMbps(ueIndex, rateMbps);
 }
 
+static void
+SetControllerForecastUtilizationMargin(CellSleepController* controller, double margin)
+{
+    controller->SetForecastUtilizationMargin(margin);
+}
+
 int
 main(int argc, char* argv[])
 {
@@ -190,6 +196,7 @@ main(int argc, char* argv[])
     Time minForecastLeadTime = Seconds(0.0);
     double forecastBurstRateMultiplier = 0.0;
     double forecastBurstRateError = 0.0;
+    double forecastBurstRateUncertainty = 0.0;
     double burstRateMultiplier = 3.0;
     std::string summaryCsv = "uno-umb-dt-energy-summary.csv";
     std::string eventCsv = "uno-umb-dt-energy-events.csv";
@@ -224,6 +231,9 @@ main(int argc, char* argv[])
     cmd.AddValue("forecastBurstRateError",
                  "Relative error on forecast burst excess load; -1 removes forecasted excess",
                  forecastBurstRateError);
+    cmd.AddValue("forecastBurstRateUncertainty",
+                 "Relative uncertainty bound on forecasted burst excess load",
+                 forecastBurstRateUncertainty);
     cmd.AddValue("burstRateMultiplier",
                  "Multiplier for shifted-UE offered load",
                  burstRateMultiplier);
@@ -297,6 +307,8 @@ main(int argc, char* argv[])
                     "forecastBurstRateMultiplier must be 0 or at least 1.0.");
     NS_ABORT_MSG_IF(forecastBurstRateError < -1.0,
                     "forecastBurstRateError must be at least -1.0.");
+    NS_ABORT_MSG_IF(forecastBurstRateUncertainty < 0.0,
+                    "forecastBurstRateUncertainty must be non-negative.");
     NS_ABORT_MSG_IF(burstRateMultiplier < 1.0, "burstRateMultiplier must be at least 1.0.");
     NS_ABORT_MSG_IF(cellCapacityMbps <= 0.0, "cellCapacityMbps must be positive.");
     NS_ABORT_MSG_IF(adaptiveMinUncertaintyScale <= 0.0,
@@ -413,6 +425,14 @@ main(int argc, char* argv[])
             controllerShiftStart = appStart;
         }
     }
+    double forecastUtilizationMargin = 0.0;
+    if (forecastLeadApplied)
+    {
+        const double forecastUncertainExtraLoadMbps =
+            shiftedUes.size() * ueRateMbps * (forecastBaseBurstRateMultiplier - 1.0) *
+            forecastBurstRateUncertainty;
+        forecastUtilizationMargin = forecastUncertainExtraLoadMbps / cellCapacityMbps;
+    }
     std::vector<double> ueRatesMbps(numberOfUes, ueRateMbps);
     for (uint32_t u = 0; u < ueLteDevs.GetN(); ++u)
     {
@@ -485,6 +505,7 @@ main(int argc, char* argv[])
     controllerConfig.requiredCoverageMarginDb = requiredCoverageMarginDb;
     controllerConfig.utilizationLimit = utilizationLimit;
     controllerConfig.uncertaintyScale = uncertaintyScale;
+    controllerConfig.forecastUtilizationMargin = 0.0;
     controllerConfig.adaptiveMinUncertaintyScale = adaptiveMinUncertaintyScale;
     controllerConfig.adaptiveMaxUncertaintyScale = adaptiveMaxUncertaintyScale;
     controllerConfig.adaptiveLoadShockGain = adaptiveLoadShockGain;
@@ -500,6 +521,14 @@ main(int argc, char* argv[])
     CellSleepController controller(controllerConfig, &eventOut);
     if (burstEnabled)
     {
+        Simulator::Schedule(controllerShiftStart,
+                            &SetControllerForecastUtilizationMargin,
+                            &controller,
+                            forecastUtilizationMargin);
+        Simulator::Schedule(shiftStop,
+                            &SetControllerForecastUtilizationMargin,
+                            &controller,
+                            0.0);
         for (uint32_t ueIndex : shiftedUes)
         {
             Simulator::Schedule(controllerShiftStart,
@@ -564,6 +593,7 @@ main(int argc, char* argv[])
                << "burst_rate_multiplier,shift_start_s,shift_stop_s,forecast_lead_time_s,"
                << "min_forecast_lead_time_s,forecast_lead_applied,"
                << "forecast_burst_rate_multiplier,forecast_burst_rate_error,"
+               << "forecast_burst_rate_uncertainty,forecast_utilization_margin,"
                << "controller_shift_start_s,burst_duration_s,"
                << "uncertainty_scale,adaptive_min_uncertainty_scale,"
                << "adaptive_max_uncertainty_scale,adaptive_load_shock_gain,"
@@ -582,6 +612,7 @@ main(int argc, char* argv[])
                << forecastLeadTime.GetSeconds() << "," << minForecastLeadTime.GetSeconds()
                << "," << (forecastLeadApplied ? 1 : 0) << ","
                << controllerBurstRateMultiplier << "," << forecastBurstRateError << ","
+               << forecastBurstRateUncertainty << "," << forecastUtilizationMargin << ","
                << controllerShiftStart.GetSeconds() << "," << burstDurationSeconds << ","
                << uncertaintyScale << ","
                << adaptiveMinUncertaintyScale << "," << adaptiveMaxUncertaintyScale << ","

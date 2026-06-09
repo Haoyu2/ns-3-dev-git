@@ -121,6 +121,5 @@ calibration alone:
 - Conservative forecasts protect the hard transition but may spend more energy,
   exposing an explicit safety-energy tradeoff.
 
-The next step is to test adaptive margins that expand uncertainty when
-forecasted burst magnitude is uncertain, then compare those margins against the
-fixed conservative forecasts above.
+The follow-on forecast-error uncertainty margin is recorded in
+`forecast-uncertainty-margin.md`.

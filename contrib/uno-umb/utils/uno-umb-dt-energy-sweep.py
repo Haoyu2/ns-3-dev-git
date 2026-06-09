@@ -73,6 +73,7 @@ def make_failure_row(
     min_forecast_lead_time,
     forecast_burst_rate_multiplier,
     forecast_burst_rate_error,
+    forecast_burst_rate_uncertainty,
     traffic_profile,
     burst_rate_multiplier,
     shift_start,
@@ -121,6 +122,15 @@ def make_failure_row(
         (forecast_base_burst_rate_multiplier - 1.0) * (1.0 + forecast_burst_rate_error),
         0.0,
     )
+    forecast_utilization_margin = 0.0
+    if forecast_lead_applied:
+        forecast_uncertain_extra_load_mbps = (
+            shift_ues
+            * ue_rate
+            * (forecast_base_burst_rate_multiplier - 1.0)
+            * forecast_burst_rate_uncertainty
+        )
+        forecast_utilization_margin = forecast_uncertain_extra_load_mbps / 18.0
 
     return {
         "policy": policy,
@@ -144,6 +154,8 @@ def make_failure_row(
         "forecast_lead_applied": 1 if forecast_lead_applied else 0,
         "forecast_burst_rate_multiplier": controller_burst_rate_multiplier,
         "forecast_burst_rate_error": forecast_burst_rate_error,
+        "forecast_burst_rate_uncertainty": forecast_burst_rate_uncertainty,
+        "forecast_utilization_margin": forecast_utilization_margin,
         "controller_shift_start_s": controller_shift_start_s,
         "burst_duration_s": burst_duration_s,
         "uncertainty_scale": uncertainty_scale,
@@ -211,6 +223,7 @@ def main():
     parser.add_argument("--min-forecast-lead-times", default="0.0s")
     parser.add_argument("--forecast-burst-rate-multipliers", default="0.0")
     parser.add_argument("--forecast-burst-rate-errors", default="0.0")
+    parser.add_argument("--forecast-burst-rate-uncertainties", default="0.0")
     parser.add_argument("--traffic-profiles", default="steady,center-burst")
     parser.add_argument("--burst-rate-multipliers", default="3.0")
     parser.add_argument("--shift-start", default="3.0s")
@@ -249,6 +262,10 @@ def main():
     min_forecast_lead_times = split_csv(args.min_forecast_lead_times)
     forecast_burst_rate_multipliers = split_csv(args.forecast_burst_rate_multipliers, float)
     forecast_burst_rate_errors = split_csv(args.forecast_burst_rate_errors, float)
+    forecast_burst_rate_uncertainties = split_csv(
+        args.forecast_burst_rate_uncertainties,
+        float,
+    )
     traffic_profiles = split_csv(args.traffic_profiles)
     burst_rate_multipliers = split_csv(args.burst_rate_multipliers, float)
 
@@ -283,6 +300,7 @@ def main():
             min_forecast_lead_times,
             forecast_burst_rate_multipliers,
             forecast_burst_rate_errors,
+            forecast_burst_rate_uncertainties,
             traffic_profiles,
             burst_rate_multipliers,
         )
@@ -307,6 +325,7 @@ def main():
         min_forecast_lead_time,
         forecast_burst_rate_multiplier,
         forecast_burst_rate_error,
+        forecast_burst_rate_uncertainty,
         traffic_profile,
         burst_rate_multiplier,
     ) in enumerate(combinations, start=1):
@@ -332,6 +351,7 @@ def main():
             min_forecast_lead_time,
             forecast_burst_rate_multiplier,
             forecast_burst_rate_error,
+            forecast_burst_rate_uncertainty,
             traffic_profile,
             effective_burst_rate_multiplier,
         )
@@ -351,6 +371,7 @@ def main():
             f"-minflead{min_forecast_lead_time}"
             f"-fburst{forecast_burst_rate_multiplier}"
             f"-ferr{forecast_burst_rate_error}"
+            f"-func{forecast_burst_rate_uncertainty}"
         ).replace(".", "p")
         summary_csv = out_dir / f"{run_id}-summary.csv"
         event_csv = out_dir / f"{run_id}-events.csv"
@@ -375,6 +396,7 @@ def main():
             f"--minForecastLeadTime={min_forecast_lead_time} "
             f"--forecastBurstRateMultiplier={forecast_burst_rate_multiplier} "
             f"--forecastBurstRateError={forecast_burst_rate_error} "
+            f"--forecastBurstRateUncertainty={forecast_burst_rate_uncertainty} "
             f"--trafficProfile={traffic_profile} "
             f"--burstRateMultiplier={effective_burst_rate_multiplier} "
             f"--shiftStart={args.shift_start} "
@@ -404,6 +426,7 @@ def main():
                 "min_forecast_lead_time": min_forecast_lead_time,
                 "forecast_burst_rate_multiplier": forecast_burst_rate_multiplier,
                 "forecast_burst_rate_error": forecast_burst_rate_error,
+                "forecast_burst_rate_uncertainty": forecast_burst_rate_uncertainty,
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,
                 "command": ["./ns3", "run", program],
@@ -439,6 +462,7 @@ def main():
                     min_forecast_lead_time=min_forecast_lead_time,
                     forecast_burst_rate_multiplier=forecast_burst_rate_multiplier,
                     forecast_burst_rate_error=forecast_burst_rate_error,
+                    forecast_burst_rate_uncertainty=forecast_burst_rate_uncertainty,
                     traffic_profile=traffic_profile,
                     burst_rate_multiplier=effective_burst_rate_multiplier,
                     shift_start=args.shift_start,
@@ -474,6 +498,7 @@ def main():
                 "forecast_lead_time_s": as_seconds(forecast_lead_time),
                 "min_forecast_lead_time_s": as_seconds(min_forecast_lead_time),
                 "forecast_burst_rate_error": forecast_burst_rate_error,
+                "forecast_burst_rate_uncertainty": forecast_burst_rate_uncertainty,
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,
                 "shift_start": args.shift_start,

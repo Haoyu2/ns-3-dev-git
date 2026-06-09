@@ -64,9 +64,11 @@ the burst magnitude while the application traffic still uses
 handover timing and forecast error be evaluated separately.  The
 ``forecastBurstRateError`` option applies a relative error to the forecasted
 excess burst load, where ``-1.0`` removes the forecasted burst excess and
-positive values overestimate it.  The ``minForecastLeadTime`` option can reject
-too-short forecast leads so that a forecast is not applied early unless it gives
-the controller enough settling time.
+positive values overestimate it.  The ``forecastBurstRateUncertainty`` option
+adds a utilization uncertainty margin during the forecast window based on a
+relative bound on forecasted excess burst load.  The ``minForecastLeadTime``
+option can reject too-short forecast leads so that a forecast is not applied
+early unless it gives the controller enough settling time.
 
 Sleeping a cell is modeled by requesting X2 handovers for served UEs and then
 reducing the eNB transmit power.  Energy is accounted analytically from active
@@ -144,12 +146,15 @@ safety decision.  For adaptive experiments, it also records the effective
 uncertainty scale, the normalized load shock, and the observed maximum
 utilization for each interval.
 The event log also includes latent preferred-cell load and the estimated peak
-utilization relief from waking a sleeping cell.
+utilization relief from waking a sleeping cell.  For forecast experiments, it
+also records the forecast-error utilization margin included in the total
+utilization uncertainty.
 Summary CSV output records whether demand-change reevaluation is enabled and
 the configured handover guard interval.  It also records the forecast lead time,
 minimum actionable forecast lead, whether the lead was applied, forecasted
-burst multiplier, forecast burst-rate error, and controller-side shift start
-for anticipated traffic shifts.
+burst multiplier, forecast burst-rate error, forecast burst-rate uncertainty,
+forecast utilization margin, and controller-side shift start for anticipated
+traffic shifts.
 
 Examples and Tests
 ------------------

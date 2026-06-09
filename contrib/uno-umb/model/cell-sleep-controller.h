@@ -52,6 +52,7 @@ struct CellSleepDecisionEstimate
     double maxUtilization{0.0};          //!< Maximum predicted active-cell utilization.
     double minCoverageMarginDb{0.0};     //!< Minimum predicted coverage margin in dB.
     double utilizationUncertainty{0.0};  //!< Utilization uncertainty margin.
+    double forecastUtilizationUncertainty{0.0}; //!< Forecast-error utilization margin.
     double coverageUncertaintyDb{0.0};   //!< Coverage uncertainty margin in dB.
     double latentLoadMbps{0.0};          //!< Preferred-cell load hidden by current offload state.
     double wakeRelief{0.0};              //!< Peak utilization reduction from waking the cell.
@@ -88,6 +89,7 @@ struct CellSleepControllerConfig
     double requiredCoverageMarginDb{3.0};                  //!< Required coverage margin.
     double utilizationLimit{0.78};                         //!< Utilization safety limit.
     double uncertaintyScale{1.0};                          //!< Risk uncertainty multiplier.
+    double forecastUtilizationMargin{0.0};                 //!< Forecast-error utilization margin.
     double adaptiveMinUncertaintyScale{0.5};               //!< Minimum adaptive multiplier.
     double adaptiveMaxUncertaintyScale{2.5};               //!< Maximum adaptive multiplier.
     double adaptiveLoadShockGain{1.5};                     //!< Load-shock adaptation gain.
@@ -169,6 +171,13 @@ class CellSleepController
      * @param rateMbps Offered load in Mb/s.
      */
     void SetUeRateMbps(uint32_t ueIndex, double rateMbps);
+
+    /**
+     * Update the active forecast-error utilization margin.
+     *
+     * @param margin Utilization margin added to risk estimates.
+     */
+    void SetForecastUtilizationMargin(double margin);
 
     /**
      * @return Current aggregate offered-load estimate in Mb/s.
@@ -383,6 +392,7 @@ class CellSleepController
     std::vector<double> m_lastHandoverRequestSeconds; //!< Last handover request per UE.
     std::vector<bool> m_restoreRetryPending; //!< Pending restore retry per eNB.
     double m_effectiveUncertaintyScale{1.0}; //!< Current uncertainty scale.
+    double m_forecastUtilizationMargin{0.0}; //!< Current forecast-error utilization margin.
     double m_lastLoadShock{0.0};             //!< Last normalized load shock.
     double m_lastMaxUtilization{0.0};        //!< Last observed max utilization.
     double m_lastPolicyRunSeconds{-1.0};     //!< Last policy evaluation time.

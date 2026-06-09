@@ -34,8 +34,8 @@ Current contribution track:
 - Forecast-error uncertainty margins that inflate the risk gate during
   forecast windows and recover unsafe underpredicted hard cases when the bound
   covers the forecast miss.
-- Measured-demand forecast correction delay for separating post-shift feedback
-  from pre-shift risk gating.
+- Measured-demand forecast correction latency for separating post-shift
+  feedback from pre-shift risk gating and failure accounting.
 - Time-averaged offered-load reporting so shifted and steady runs can be compared
   without mixing scenario definitions.
 
@@ -139,6 +139,9 @@ Experiment notes:
   margin that recovers underpredicted hard right-edge transitions.
 - `experiments/forecast-correction-delay.md`: measured-demand correction at
   burst start versus pre-burst uncertainty margin.
+- `experiments/forecast-correction-latency-surface.md`: correction-latency
+  surface showing that feedback timing does not replace pre-burst margin in the
+  hard right-edge placement.
 
 Near-term extension list:
 

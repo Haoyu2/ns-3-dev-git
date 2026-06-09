@@ -130,5 +130,5 @@ This strengthens the contribution framing:
 - Correction delay is now an explicit experimental dimension, so future sweeps
   can quantify how much post-shift feedback latency is tolerable.
 
-The next step is to run a broader correction-latency surface with `0.0s`,
-`0.25s`, `0.5s`, and `1.0s` delays across more traffic profiles.
+The broader correction-latency surface is recorded in
+`forecast-correction-latency-surface.md`.

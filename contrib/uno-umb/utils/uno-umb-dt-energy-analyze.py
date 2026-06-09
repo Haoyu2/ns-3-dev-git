@@ -148,6 +148,10 @@ def scenario_key(row, fields):
     return tuple(key)
 
 
+def grouped_key(row, fields):
+    return scenario_key(row, fields)
+
+
 def write_policy_summary(rows, output_dir):
     summary_rows = summarize_rows(rows, ["policy"])
     summary_csv = output_dir / "policy-summary.csv"
@@ -192,7 +196,7 @@ def write_run_status_summary(rows, output_dir):
     ]
     grouped = defaultdict(list)
     for row in rows:
-        key = tuple(row.get(field, "") for field in group_fields)
+        key = grouped_key(row, group_fields)
         grouped[key].append(row)
 
     summary_rows = []
@@ -224,7 +228,7 @@ def write_run_status_summary(rows, output_dir):
 def summarize_rows(rows, group_fields):
     grouped = defaultdict(list)
     for row in rows:
-        key = tuple(row.get(field, "") for field in group_fields)
+        key = grouped_key(row, group_fields)
         grouped[key].append(row)
 
     summary_rows = []
@@ -352,7 +356,7 @@ def write_pairwise_comparison(rows, output_dir):
     ]
     by_scenario = defaultdict(dict)
     for row in rows:
-        key = tuple(row.get(field, "") for field in scenario_fields)
+        key = grouped_key(row, scenario_fields)
         by_scenario[key][row["policy"]] = row
 
     comparison_fields = scenario_fields + [
@@ -581,7 +585,7 @@ def write_feasible_policy_summary(feasibility_rows, output_dir):
     for row in feasibility_rows:
         if as_float(row, "all_on_feasible") < 0.5:
             continue
-        key = tuple(row.get(field, "") for field in group_fields)
+        key = grouped_key(row, group_fields)
         grouped[key].append(row)
 
     summary_rows = []
@@ -650,12 +654,12 @@ def write_feasibility_envelope_summary(feasibility_rows, output_dir):
     all_on_by_envelope = {}
     controller_groups = defaultdict(list)
     for row in feasibility_rows:
-        envelope_key = tuple(row.get(field, "") for field in envelope_fields)
-        all_on_key = envelope_key + tuple(row.get(field, "") for field in ["seed", "run"])
+        envelope_key = grouped_key(row, envelope_fields)
+        all_on_key = envelope_key + grouped_key(row, ["seed", "run"])
         all_on_by_envelope.setdefault(envelope_key, {})
         all_on_by_envelope[envelope_key].setdefault(all_on_key, row)
 
-        controller_key = envelope_key + tuple(row.get(field, "") for field in controller_fields)
+        controller_key = envelope_key + grouped_key(row, controller_fields)
         controller_groups[controller_key].append(row)
 
     summary_rows = []

@@ -118,6 +118,8 @@ Experiment notes:
   envelope plus right-edge forecast lead-time ablation.
 - `experiments/forecast-error-calibration.md`: right-edge calibration for
   under- and over-predicted traffic-shift magnitude.
+- `experiments/lead-forecast-surface.md`: compact surface over forecast lead
+  time and forecasted burst magnitude.
 
 Near-term extension list:
 

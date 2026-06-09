@@ -123,5 +123,6 @@ The result adds an important limitation and contribution path:
 - Overprediction is safe in this slice but can reduce savings from `11.163%`
   to `4.784%` on average.
 
-The next paper-oriented step is to sweep forecast lead time and forecast error
-together, then add forecast-noise models instead of fixed multipliers.
+The follow-on lead-time/forecast-magnitude surface is recorded in
+`lead-forecast-surface.md`.  A later step should add forecast-noise models
+instead of fixed multipliers.

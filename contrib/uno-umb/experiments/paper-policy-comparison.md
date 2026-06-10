@@ -148,7 +148,5 @@ center `1.5x` case reaches `23.920%`.
 
 ## Next Step
 
-The next experiment should broaden this compact table across seeds, UE counts,
-and eNB spacings while preserving the same feasible-only accounting.  That would
-turn this pilot table into a paper figure with confidence intervals instead of
-only three placements.
+The first seed/spacing expansion is recorded in
+`paper-spacing-sensitivity.md`.

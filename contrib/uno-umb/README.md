@@ -105,6 +105,12 @@ Analyze an aggregate CSV:
 python3 contrib/uno-umb/utils/uno-umb-dt-energy-analyze.py results/uno-umb-dt-energy-*/aggregate.csv
 ```
 
+Build a compact paper-facing policy table:
+
+```bash
+python3 contrib/uno-umb/utils/uno-umb-paper-table.py results/uno-umb-dt-energy-*/aggregate.csv
+```
+
 Analysis outputs:
 
 - `policy-summary.csv` and `.md`: policy-level means and standard deviations.
@@ -145,6 +151,8 @@ Experiment notes:
 - `experiments/paper-policy-comparison.md`: compact all-on/twin/adaptive-twin
   comparison separating reactive center-burst protection from forecasted
   right-edge transition protection.
+- `experiments/paper-spacing-sensitivity.md`: first seed/spacing expansion of
+  the compact paper table, using the generated paper-table utility.
 
 Near-term extension list:
 

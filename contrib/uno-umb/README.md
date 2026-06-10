@@ -153,6 +153,9 @@ Experiment notes:
   right-edge transition protection.
 - `experiments/paper-spacing-sensitivity.md`: first seed/spacing expansion of
   the compact paper table, using the generated paper-table utility.
+- `experiments/right-edge-transition-boundary.md`: six-placement `500 m`
+  boundary check showing forecast lead and forecast margin remove the observed
+  no-forecast right-edge tail failure.
 
 Near-term extension list:
 

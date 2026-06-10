@@ -197,8 +197,8 @@ right-edge rows, but only some right-edge placements actually need it.
 
 ## Next Step
 
-The next sweep should intentionally search for the transition boundary instead
-of sampling spacings uniformly.  A good target is `right-edge-burst 1.5x` over
-more runs at `500 m` and nearby spacings, comparing no forecast, perfect lead,
-and underforecast-plus-margin.  That would turn the forecast claim from a
-single hard placement into a measured boundary surface.
+The first follow-up is recorded in `right-edge-transition-boundary.md`: six
+placements at `500 m` show all-on feasibility on 6/6 rows, no-forecast controller
+safety on 5/6 rows, and forecasted or underforecast-plus-margin safety on 6/6
+rows.  The next sweep should extend that boundary to nearby spacings, for
+example `475 m`, `500 m`, and `525 m`, across seeds `1,2`.

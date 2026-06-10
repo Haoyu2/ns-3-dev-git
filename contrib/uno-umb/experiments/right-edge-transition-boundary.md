@@ -184,7 +184,8 @@ static and adaptive controllers converge to the same safe energy-saving outcome.
 
 ## Next Step
 
-Turn this into a small transition surface around the boundary: repeat the same
-comparison at `475 m`, `500 m`, and `525 m`, with seeds `1,2`, and keep only
-all-on-feasible rows in the paper table.  That would separate placement
-sensitivity from spacing sensitivity while keeping the run budget controlled.
+The follow-up surface is recorded in `right-edge-transition-surface.md`.
+Forecast lead and forecast-error margin recover the `500 m` tail failure, while
+one feasible `475 m` placement remains unsafe.  The next targeted check should
+try wider uncertainty margins on that `475 m` sample to determine whether it is
+recoverable or marks the lower practical edge of the current controller.

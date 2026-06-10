@@ -156,6 +156,9 @@ Experiment notes:
 - `experiments/right-edge-transition-boundary.md`: six-placement `500 m`
   boundary check showing forecast lead and forecast margin remove the observed
   no-forecast right-edge tail failure.
+- `experiments/right-edge-transition-surface.md`: compact `475/500/525 m`
+  surface showing forecast margin expands the safe right-edge transition region
+  at `500 m` while exposing a stricter lower-spacing edge.
 
 Near-term extension list:
 

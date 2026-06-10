@@ -141,7 +141,5 @@ The result sharpens the forecast contribution:
 - Simulator failures are now accounted for conservatively instead of being
   hidden by scenario-key formatting differences.
 
-The next step should move from this single hard transition to a compact
-policy-comparison table: all-on, twin, and adaptive-twin over center-burst and
-right-edge-burst feasible rows, with forecast lead, error margin, and correction
-latency reported as separate controls.
+The compact all-on/twin/adaptive-twin comparison is recorded in
+`paper-policy-comparison.md`.

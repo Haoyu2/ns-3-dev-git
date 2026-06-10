@@ -142,6 +142,9 @@ Experiment notes:
 - `experiments/forecast-correction-latency-surface.md`: correction-latency
   surface showing that feedback timing does not replace pre-burst margin in the
   hard right-edge placement.
+- `experiments/paper-policy-comparison.md`: compact all-on/twin/adaptive-twin
+  comparison separating reactive center-burst protection from forecasted
+  right-edge transition protection.
 
 Near-term extension list:
 

@@ -1,0 +1,182 @@
+\documentclass[10pt,twocolumn]{article}
+
+\usepackage[margin=0.72in]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+\title{UNO-UMB: Uncertainty-Aware Cell Sleep Control for QoS-Safe RAN Energy Savings}
+\author{Haoyu}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Cell sleep can reduce radio access network energy use, but load shifts can turn
+apparently safe sleep decisions into quality-of-service violations.  This paper
+presents UNO-UMB, an ns-3 prototype for uncertainty-aware cell sleep control.
+UNO-UMB combines a lightweight digital-twin risk gate, a latent-demand wakeup
+rule for unannounced shifts, and a forecast-risk margin that is selectively
+inflated only for tight close-offload decisions.  In the current LTE evaluation,
+the adaptive wakeup removes controller-induced violations on feasible center
+bursts where static risk gating fails.  On a right-edge transition surface with
+a 25\% underpredicted forecast, selective overlap-gated margins recover all
+11/11 feasible rows with 13.482\% mean safe energy saving, compared with
+4.784\% for a global conservative margin.  These preliminary results suggest
+that spatially conditioned uncertainty control can preserve energy savings
+while bounding transition risk.
+\end{abstract}
+
+\section{Introduction}
+
+Radio access networks are increasingly energy constrained: base stations are
+dimensioned for busy periods, but much of the deployment may be lightly loaded
+for long intervals.  Cell sleep is a direct way to reduce active energy, yet a
+sleep decision changes the load and radio geometry seen by neighboring cells.
+The central difficulty is therefore not only to find idle cells, but to decide
+which apparently idle cells can sleep without creating a quality-of-service
+violation after traffic shifts.
+
+UNO-UMB studies this problem in ns-3.  The current prototype focuses on a
+simple but paper-relevant question: can a lightweight uncertainty-aware
+controller recover energy savings while avoiding controller-induced failures in
+workloads that remain feasible when all cells stay active?
+
+The contributions are:
+
+\begin{itemize}
+\item A digital-twin cell sleep controller that evaluates candidate sleep
+decisions against per-UE offered load and predicted active-cell utilization.
+\item A latent-demand wakeup mechanism that reacts to unannounced load shifts
+by reactivating sleeping preferred cells when doing so would relieve active
+cell stress.
+\item A forecast-risk margin with selective overlap inflation, which applies a
+stronger bound only when a tight utilization decision also uses close offload
+geometry.
+\item A feasible-row evaluation method that separates controller-induced
+violations from offered-load overload by comparing every controller row against
+the matching all-on reference row.
+\end{itemize}
+
+\section{Controller Design}
+
+UNO-UMB operates as a periodic cell sleep controller with event-triggered
+reevaluation when demand changes.  For each candidate cell, the controller
+estimates whether sleeping the cell would overload the remaining active cells.
+The baseline twin policy keeps a cell active when the estimated risk exceeds a
+configured guard.
+
+The adaptive controller adds a latent-demand wakeup gate.  When a sleeping cell
+is the preferred serving cell for enough offered demand, and waking it would
+reduce peak active-cell utilization by a configured relief threshold, the
+controller reactivates that cell.  This mechanism targets unannounced load
+shifts where a previously safe sleep decision becomes unsafe before the next
+steady-state placement.
+
+For anticipated traffic shifts, UNO-UMB supports a lead-time forecast gate.  A
+forecast can carry both a magnitude error and an uncertainty margin.  The
+selective overlap variant uses a base uncertainty margin for ordinary forecast
+decisions, then inflates the margin only when the candidate decision has small
+utilization slack and nearby offload geometry.  This condition matches the
+right-edge transition failures observed in the current experiments without
+charging the stronger margin to wider safe placements.
+
+\section{Evaluation Setup}
+
+The prototype is implemented as an ns-3 contribution module and evaluated using
+an LTE cell sleep example.  Unless otherwise noted, the main rows use 16 UEs, a
+1.0 Mb/s per-UE base offered load, a 12 s simulation, and a burst window from
+3 s to 10 s.
+
+The evaluation reports three classes of outcome.  First, the all-on reference
+identifies whether the offered-load scenario is feasible without cell sleep.
+Second, controller rows are counted only when the matching all-on row is
+feasible.  Third, safe energy saving is measured only for controller rows that
+avoid induced violations.
+
+\section{Results}
+
+Table~\ref{tab:center} summarizes the current center-burst rows.  Static twin
+control is safe in the easy center 1.5x case, but misses feasible rows at 2x
+and 3x.  Adaptive twin control removes those induced violations by waking cells
+earlier, at the cost of lower energy saving in the harder cases.
+
+\begin{table}[t]
+\centering
+\caption{Center-burst feasible-row results at 500 m.}
+\label{tab:center}
+\begin{tabular}{llll}
+\hline
+Scenario & Policy & Safe rate & Saving \\
+\hline
+1.5x & twin & 3/3 & 23.920\% \\
+1.5x & adaptive & 3/3 & 23.920\% \\
+2.0x & twin & 2/3 & 15.947\% \\
+2.0x & adaptive & 3/3 & 7.176\% \\
+3.0x & twin & 1/2 & 3.588\% \\
+3.0x & adaptive & 2/2 & 7.176\% \\
+\hline
+\end{tabular}
+\end{table}
+
+Table~\ref{tab:right-edge} summarizes the right-edge transition surface across
+475 m, 500 m, and 525 m spacing.  The no-forecast controller leaves two
+feasible rows unsafe.  A 0.25 uncertainty margin improves safety but still
+misses one tight overlap sample.  The selective overlap margin recovers all
+11 feasible rows while retaining the high-saving behavior of the base margin on
+wider placements.
+
+\begin{table}[t]
+\centering
+\caption{Right-edge 1.5x transition surface with 25\% underprediction.}
+\label{tab:right-edge}
+\begin{tabular}{llll}
+\hline
+Control & Policy & Safe rate & Saving \\
+\hline
+No forecast & twin & 9/11 & 13.482\% \\
+No forecast & adaptive & 9/11 & 5.871\% \\
+0.25 margin & twin & 10/11 & 13.047\% \\
+0.25 margin & adaptive & 10/11 & 13.047\% \\
+Selective margin & twin & 11/11 & 13.482\% \\
+Selective margin & adaptive & 11/11 & 13.482\% \\
+\hline
+\end{tabular}
+\end{table}
+
+The selective result is the strongest current evidence for the paper.  A
+previous global 0.35 margin also recovered all feasible right-edge rows, but
+reduced mean safe energy saving to 4.784\%.  Selective overlap inflation
+therefore preserves the safety of the conservative bound while avoiding most of
+its energy cost.
+
+\section{Discussion and Limitations}
+
+The present results are intentionally framed as feasible-row results, not as a
+claim that every offered-load scenario can be made safe by control.  Some rows
+are overloaded even when all cells remain active, and those rows are excluded
+from controller safety rates.
+
+The next validation step is a larger replicated sweep over more seeds, UE
+rates, UE counts, and spacings.  The prototype should also be compared against
+stronger baselines, including controllers with calibrated static margins and
+controllers that use forecast lead time without spatially selective inflation.
+
+\section{Related Work}
+
+This section will be filled with the final venue-specific literature review.
+The key groups to cover are RAN energy saving and cell sleep, digital-twin or
+model-predictive radio control, uncertainty-aware resource management, and
+robust handover or load-balancing methods.
+
+\section{Conclusion}
+
+UNO-UMB shows that cell sleep safety can benefit from separating reactive and
+forecasted uncertainty.  Latent-demand wakeup protects feasible unannounced
+center bursts, while selective overlap-gated forecast margins protect hard
+right-edge transitions without imposing a global conservative energy cost.  The
+current ns-3 prototype and experiment notes are ready for a first manuscript
+draft and a broader replication sweep.
+
+\end{document}

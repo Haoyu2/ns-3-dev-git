@@ -114,6 +114,12 @@ Build a compact paper-facing policy table:
 python3 contrib/uno-umb/utils/uno-umb-paper-table.py results/uno-umb-dt-energy-*/aggregate.csv
 ```
 
+Manuscript draft:
+
+```bash
+make -C contrib/uno-umb/paper
+```
+
 Analysis outputs:
 
 - `policy-summary.csv` and `.md`: policy-level means and standard deviations.
@@ -174,6 +180,14 @@ Experiment notes:
 - `experiments/right-edge-selective-overlap-surface.md`: full `475/500/525 m`
   selective-overlap surface showing `11/11` feasible-row safety with
   `13.482%` mean safe energy saving.
+- `experiments/main-paper-table-selective.md`: combined main paper table that
+  joins the center-burst adaptive-wakeup result with the right-edge selective
+  overlap forecast-margin surface.
+
+Paper draft:
+
+- `paper/draft.tex`: initial manuscript scaffold built around the current two
+  mechanism contributions.
 
 Near-term extension list:
 

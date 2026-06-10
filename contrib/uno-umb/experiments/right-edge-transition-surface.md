@@ -210,8 +210,8 @@ protection is primarily a forecast-timing and margin effect.
 
 ## Next Step
 
-The next targeted experiment should focus on the remaining `475 m` hard sample:
-try a wider forecast-error uncertainty margin, for example `0.35` and `0.50`,
-and compare it with a lower target energy-saving gate.  The goal is to learn
-whether the `475 m` failure is recoverable by stronger risk padding or marks the
-practical lower edge of the current controller.
+The hard-sample follow-up is recorded in `right-edge-hard-sample-margin.md`.
+The remaining `475 m` failure is recoverable with a calibrated forecast-error
+uncertainty value of `0.35`, while values through `0.34` still fail and lower
+sleep thresholds recover safety only by giving up all energy savings.  The next
+surface run should repeat `475/500/525 m` with the calibrated `0.35` margin.

@@ -159,6 +159,9 @@ Experiment notes:
 - `experiments/right-edge-transition-surface.md`: compact `475/500/525 m`
   surface showing forecast margin expands the safe right-edge transition region
   at `500 m` while exposing a stricter lower-spacing edge.
+- `experiments/right-edge-hard-sample-margin.md`: targeted `475 m` calibration
+  showing the remaining hard sample recovers at `0.35` forecast-error
+  uncertainty with nonzero energy savings.
 
 Near-term extension list:
 

@@ -171,6 +171,9 @@ Experiment notes:
 - `experiments/right-edge-selective-overlap-margin.md`: selective `0.25/0.35`
   overlap-gated margin probe that recovers the hard `475 m` sample while
   preserving high-saving `500/525 m` behavior for the same seed/run.
+- `experiments/right-edge-selective-overlap-surface.md`: full `475/500/525 m`
+  selective-overlap surface showing `11/11` feasible-row safety with
+  `13.482%` mean safe energy saving.
 
 Near-term extension list:
 

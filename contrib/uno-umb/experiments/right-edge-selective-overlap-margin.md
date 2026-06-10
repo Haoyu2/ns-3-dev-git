@@ -119,8 +119,7 @@ conservative action only where the close-overlap offload indicates the
 right-edge interference tail, while allowing wider placements to keep the
 aggressive-but-safe sleep action.
 
-This result is still a probe, not the final surface claim.  The next experiment
-should rerun the full `475/500/525 m`, seeds `1,2`, runs `1,2` surface with
-`forecastMarginTriggerSlack=0.019` and
-`forecastMarginTriggerMaxOffloadMeters=400`, then compare it against the
-`0.25` and global `0.35` margins on feasible all-on rows.
+The full replicated surface is recorded in
+`right-edge-selective-overlap-surface.md`.  The same selective trigger reaches
+`11/11` safe feasible rows and raises mean safe energy saving from the global
+`0.35` margin's `4.784%` to `13.482%`.

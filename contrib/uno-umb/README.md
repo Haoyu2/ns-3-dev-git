@@ -162,6 +162,9 @@ Experiment notes:
 - `experiments/right-edge-hard-sample-margin.md`: targeted `475 m` calibration
   showing the remaining hard sample recovers at `0.35` forecast-error
   uncertainty with nonzero energy savings.
+- `experiments/right-edge-calibrated-margin-surface.md`: calibrated `0.35`
+  margin surface showing full feasible-row safety, with the energy cost that
+  motivates selective margin control.
 
 Near-term extension list:
 

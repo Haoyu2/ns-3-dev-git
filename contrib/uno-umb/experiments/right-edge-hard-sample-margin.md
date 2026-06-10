@@ -197,6 +197,8 @@ mechanism here, while adaptive wakeup remains the center-burst contribution.
 
 ## Next Step
 
-Run the `475/500/525 m` transition surface again with `0.35` forecast-error
-uncertainty.  The goal is to measure whether the calibrated hard-sample margin
-improves the full surface without collapsing energy savings on easier rows.
+The calibrated surface is recorded in `right-edge-calibrated-margin-surface.md`.
+The `0.35` margin recovers the full feasible surface, but it also reduces every
+safe controller row to the same conservative `4.784%` energy saving.  The next
+step is a selective margin policy that applies the stronger margin only near
+tight forecasted transitions.

@@ -76,6 +76,10 @@ def normalize_row(row):
     row.setdefault("forecast_burst_rate_error", "0.0")
     row.setdefault("forecast_burst_rate_uncertainty", "0.0")
     row.setdefault("forecast_utilization_margin", "0.0")
+    row.setdefault("selective_forecast_burst_rate_uncertainty", "0.0")
+    row.setdefault("selective_forecast_utilization_margin", "0.0")
+    row.setdefault("forecast_margin_trigger_slack", "0.0")
+    row.setdefault("forecast_margin_trigger_max_offload_m", "0.0")
     row.setdefault("forecast_correction_delay_s", "-1.0")
     row.setdefault("forecast_correction_applied", "0")
     row.setdefault("forecast_correction_time_s", "-1.0")
@@ -191,6 +195,10 @@ def write_run_status_summary(rows, output_dir):
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
         "forecast_utilization_margin",
+        "selective_forecast_burst_rate_uncertainty",
+        "selective_forecast_utilization_margin",
+        "forecast_margin_trigger_slack",
+        "forecast_margin_trigger_max_offload_m",
         "forecast_correction_delay_s",
         "forecast_correction_applied",
     ]
@@ -296,6 +304,10 @@ def write_scenario_summary(rows, output_dir):
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
         "forecast_utilization_margin",
+        "selective_forecast_burst_rate_uncertainty",
+        "selective_forecast_utilization_margin",
+        "forecast_margin_trigger_slack",
+        "forecast_margin_trigger_max_offload_m",
         "forecast_correction_delay_s",
         "forecast_correction_applied",
         "forecast_correction_time_s",
@@ -349,6 +361,10 @@ def write_pairwise_comparison(rows, output_dir):
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
         "forecast_utilization_margin",
+        "selective_forecast_burst_rate_uncertainty",
+        "selective_forecast_utilization_margin",
+        "forecast_margin_trigger_slack",
+        "forecast_margin_trigger_max_offload_m",
         "forecast_correction_delay_s",
         "forecast_correction_applied",
         "forecast_correction_time_s",
@@ -473,6 +489,10 @@ def write_feasibility_comparison(rows, output_dir):
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
         "forecast_utilization_margin",
+        "selective_forecast_burst_rate_uncertainty",
+        "selective_forecast_utilization_margin",
+        "forecast_margin_trigger_slack",
+        "forecast_margin_trigger_max_offload_m",
         "forecast_correction_delay_s",
         "forecast_correction_applied",
         "all_on_throughput_mbps",
@@ -525,6 +545,19 @@ def write_feasibility_comparison(rows, output_dir):
                     "",
                 ),
                 "forecast_utilization_margin": row.get("forecast_utilization_margin", ""),
+                "selective_forecast_burst_rate_uncertainty": row.get(
+                    "selective_forecast_burst_rate_uncertainty",
+                    "",
+                ),
+                "selective_forecast_utilization_margin": row.get(
+                    "selective_forecast_utilization_margin",
+                    "",
+                ),
+                "forecast_margin_trigger_slack": row.get("forecast_margin_trigger_slack", ""),
+                "forecast_margin_trigger_max_offload_m": row.get(
+                    "forecast_margin_trigger_max_offload_m",
+                    "",
+                ),
                 "forecast_correction_delay_s": row.get("forecast_correction_delay_s", ""),
                 "forecast_correction_applied": row.get("forecast_correction_applied", ""),
                 "all_on_throughput_mbps": as_float(all_on, "throughput_mbps"),
@@ -578,6 +611,10 @@ def write_feasible_policy_summary(feasibility_rows, output_dir):
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
         "forecast_utilization_margin",
+        "selective_forecast_burst_rate_uncertainty",
+        "selective_forecast_utilization_margin",
+        "forecast_margin_trigger_slack",
+        "forecast_margin_trigger_max_offload_m",
         "forecast_correction_delay_s",
         "forecast_correction_applied",
     ]
@@ -647,6 +684,10 @@ def write_feasibility_envelope_summary(feasibility_rows, output_dir):
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
         "forecast_utilization_margin",
+        "selective_forecast_burst_rate_uncertainty",
+        "selective_forecast_utilization_margin",
+        "forecast_margin_trigger_slack",
+        "forecast_margin_trigger_max_offload_m",
         "forecast_correction_delay_s",
         "forecast_correction_applied",
     ]

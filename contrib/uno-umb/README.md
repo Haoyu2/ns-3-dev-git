@@ -34,6 +34,9 @@ Current contribution track:
 - Forecast-error uncertainty margins that inflate the risk gate during
   forecast windows and recover unsafe underpredicted hard cases when the bound
   covers the forecast miss.
+- Selective overlap-gated forecast margins that apply the stronger hard-case
+  bound only to tight close-offload decisions, preserving higher savings on
+  wider safe placements.
 - Measured-demand forecast correction latency for separating post-shift
   feedback from pre-shift risk gating and failure accounting.
 - Time-averaged offered-load reporting so shifted and steady runs can be compared
@@ -165,6 +168,9 @@ Experiment notes:
 - `experiments/right-edge-calibrated-margin-surface.md`: calibrated `0.35`
   margin surface showing full feasible-row safety, with the energy cost that
   motivates selective margin control.
+- `experiments/right-edge-selective-overlap-margin.md`: selective `0.25/0.35`
+  overlap-gated margin probe that recovers the hard `475 m` sample while
+  preserving high-saving `500/525 m` behavior for the same seed/run.
 
 Near-term extension list:
 

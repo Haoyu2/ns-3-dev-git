@@ -144,9 +144,11 @@ SetControllerUeRate(CellSleepController* controller, uint32_t ueIndex, double ra
 }
 
 static void
-SetControllerForecastUtilizationMargin(CellSleepController* controller, double margin)
+SetControllerForecastUtilizationMargins(CellSleepController* controller,
+                                        double margin,
+                                        double selectiveMargin)
 {
-    controller->SetForecastUtilizationMargin(margin);
+    controller->SetForecastUtilizationMargins(margin, selectiveMargin);
 }
 
 int
@@ -197,6 +199,9 @@ main(int argc, char* argv[])
     double forecastBurstRateMultiplier = 0.0;
     double forecastBurstRateError = 0.0;
     double forecastBurstRateUncertainty = 0.0;
+    double selectiveForecastBurstRateUncertainty = 0.0;
+    double forecastMarginTriggerSlack = 0.0;
+    double forecastMarginTriggerMaxOffloadMeters = 0.0;
     Time forecastCorrectionDelay = Seconds(-1.0);
     double burstRateMultiplier = 3.0;
     std::string summaryCsv = "uno-umb-dt-energy-summary.csv";
@@ -235,6 +240,18 @@ main(int argc, char* argv[])
     cmd.AddValue("forecastBurstRateUncertainty",
                  "Relative uncertainty bound on forecasted burst excess load",
                  forecastBurstRateUncertainty);
+    cmd.AddValue("selectiveForecastBurstRateUncertainty",
+                 "Escalated uncertainty bound for near-limit forecasted sleep decisions; "
+                 "0 disables selective escalation",
+                 selectiveForecastBurstRateUncertainty);
+    cmd.AddValue("forecastMarginTriggerSlack",
+                 "Utilization-limit slack that triggers selective forecast uncertainty; "
+                 "0 disables selective escalation",
+                 forecastMarginTriggerSlack);
+    cmd.AddValue("forecastMarginTriggerMaxOffloadMeters",
+                 "Maximum estimated offload distance that can trigger selective forecast "
+                 "uncertainty; 0 disables the distance gate",
+                 forecastMarginTriggerMaxOffloadMeters);
     cmd.AddValue("forecastCorrectionDelay",
                  "Delay after traffic-shift start before correcting forecasted demand; negative "
                  "disables correction",
@@ -314,6 +331,12 @@ main(int argc, char* argv[])
                     "forecastBurstRateError must be at least -1.0.");
     NS_ABORT_MSG_IF(forecastBurstRateUncertainty < 0.0,
                     "forecastBurstRateUncertainty must be non-negative.");
+    NS_ABORT_MSG_IF(selectiveForecastBurstRateUncertainty < 0.0,
+                    "selectiveForecastBurstRateUncertainty must be non-negative.");
+    NS_ABORT_MSG_IF(forecastMarginTriggerSlack < 0.0,
+                    "forecastMarginTriggerSlack must be non-negative.");
+    NS_ABORT_MSG_IF(forecastMarginTriggerMaxOffloadMeters < 0.0,
+                    "forecastMarginTriggerMaxOffloadMeters must be non-negative.");
     NS_ABORT_MSG_IF(forecastCorrectionDelay >= Seconds(0) &&
                         shiftStart + forecastCorrectionDelay >= shiftStop,
                     "forecastCorrectionDelay must correct before shiftStop.");
@@ -433,13 +456,23 @@ main(int argc, char* argv[])
             controllerShiftStart = appStart;
         }
     }
-    double forecastUtilizationMargin = 0.0;
-    if (forecastLeadApplied)
-    {
+    const auto computeForecastUtilizationMargin = [&](double burstRateUncertainty) {
+        if (!forecastLeadApplied)
+        {
+            return 0.0;
+        }
         const double forecastUncertainExtraLoadMbps =
             shiftedUes.size() * ueRateMbps * (forecastBaseBurstRateMultiplier - 1.0) *
-            forecastBurstRateUncertainty;
-        forecastUtilizationMargin = forecastUncertainExtraLoadMbps / cellCapacityMbps;
+            burstRateUncertainty;
+        return forecastUncertainExtraLoadMbps / cellCapacityMbps;
+    };
+    const double forecastUtilizationMargin =
+        computeForecastUtilizationMargin(forecastBurstRateUncertainty);
+    double selectiveForecastUtilizationMargin = 0.0;
+    if (selectiveForecastBurstRateUncertainty > forecastBurstRateUncertainty)
+    {
+        selectiveForecastUtilizationMargin =
+            computeForecastUtilizationMargin(selectiveForecastBurstRateUncertainty);
     }
     const bool forecastCorrectionApplied =
         burstEnabled && forecastCorrectionDelay >= Seconds(0) &&
@@ -521,6 +554,10 @@ main(int argc, char* argv[])
     controllerConfig.utilizationLimit = utilizationLimit;
     controllerConfig.uncertaintyScale = uncertaintyScale;
     controllerConfig.forecastUtilizationMargin = 0.0;
+    controllerConfig.selectiveForecastUtilizationMargin = 0.0;
+    controllerConfig.forecastMarginTriggerSlack = forecastMarginTriggerSlack;
+    controllerConfig.forecastMarginTriggerMaxOffloadMeters =
+        forecastMarginTriggerMaxOffloadMeters;
     controllerConfig.adaptiveMinUncertaintyScale = adaptiveMinUncertaintyScale;
     controllerConfig.adaptiveMaxUncertaintyScale = adaptiveMaxUncertaintyScale;
     controllerConfig.adaptiveLoadShockGain = adaptiveLoadShockGain;
@@ -537,12 +574,14 @@ main(int argc, char* argv[])
     if (burstEnabled)
     {
         Simulator::Schedule(controllerShiftStart,
-                            &SetControllerForecastUtilizationMargin,
+                            &SetControllerForecastUtilizationMargins,
                             &controller,
-                            forecastUtilizationMargin);
+                            forecastUtilizationMargin,
+                            selectiveForecastUtilizationMargin);
         Simulator::Schedule(forecastMarginStop,
-                            &SetControllerForecastUtilizationMargin,
+                            &SetControllerForecastUtilizationMargins,
                             &controller,
+                            0.0,
                             0.0);
         for (uint32_t ueIndex : shiftedUes)
         {
@@ -617,6 +656,9 @@ main(int argc, char* argv[])
                << "min_forecast_lead_time_s,forecast_lead_applied,"
                << "forecast_burst_rate_multiplier,forecast_burst_rate_error,"
                << "forecast_burst_rate_uncertainty,forecast_utilization_margin,"
+               << "selective_forecast_burst_rate_uncertainty,"
+               << "selective_forecast_utilization_margin,forecast_margin_trigger_slack,"
+               << "forecast_margin_trigger_max_offload_m,"
                << "forecast_correction_delay_s,forecast_correction_applied,"
                << "forecast_correction_time_s,"
                << "controller_shift_start_s,burst_duration_s,"
@@ -638,6 +680,9 @@ main(int argc, char* argv[])
                << "," << (forecastLeadApplied ? 1 : 0) << ","
                << controllerBurstRateMultiplier << "," << forecastBurstRateError << ","
                << forecastBurstRateUncertainty << "," << forecastUtilizationMargin << ","
+               << selectiveForecastBurstRateUncertainty << ","
+               << selectiveForecastUtilizationMargin << "," << forecastMarginTriggerSlack << ","
+               << forecastMarginTriggerMaxOffloadMeters << ","
                << forecastCorrectionDelay.GetSeconds() << ","
                << (forecastCorrectionApplied ? 1 : 0) << ","
                << forecastCorrectionTime.GetSeconds() << ","

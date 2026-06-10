@@ -91,7 +91,8 @@ CellSleepController::CellSleepController(const CellSleepControllerConfig& config
       m_lastHandoverRequestSeconds(config.servingEnb.size(), -1.0e9),
       m_restoreRetryPending(config.enbNodes.GetN(), false),
       m_effectiveUncertaintyScale(config.uncertaintyScale),
-      m_forecastUtilizationMargin(config.forecastUtilizationMargin)
+      m_forecastUtilizationMargin(config.forecastUtilizationMargin),
+      m_selectiveForecastUtilizationMargin(config.selectiveForecastUtilizationMargin)
 {
     if (m_preferredEnb.empty())
     {
@@ -108,6 +109,12 @@ CellSleepController::CellSleepController(const CellSleepControllerConfig& config
     NS_ABORT_MSG_IF(m_config.cellCapacityMbps <= 0.0, "cellCapacityMbps must be positive");
     NS_ABORT_MSG_IF(m_config.forecastUtilizationMargin < 0.0,
                     "forecastUtilizationMargin must be non-negative");
+    NS_ABORT_MSG_IF(m_config.selectiveForecastUtilizationMargin < 0.0,
+                    "selectiveForecastUtilizationMargin must be non-negative");
+    NS_ABORT_MSG_IF(m_config.forecastMarginTriggerSlack < 0.0,
+                    "forecastMarginTriggerSlack must be non-negative");
+    NS_ABORT_MSG_IF(m_config.forecastMarginTriggerMaxOffloadMeters < 0.0,
+                    "forecastMarginTriggerMaxOffloadMeters must be non-negative");
     NS_ABORT_MSG_IF(m_config.adaptiveMinUncertaintyScale <= 0.0,
                     "adaptiveMinUncertaintyScale must be positive");
     NS_ABORT_MSG_IF(m_config.adaptiveMaxUncertaintyScale < m_config.adaptiveMinUncertaintyScale,
@@ -169,7 +176,17 @@ void
 CellSleepController::SetForecastUtilizationMargin(double margin)
 {
     NS_ABORT_MSG_IF(margin < 0.0, "Forecast utilization margin must be non-negative");
+    SetForecastUtilizationMargins(margin, 0.0);
+}
+
+void
+CellSleepController::SetForecastUtilizationMargins(double margin, double selectiveMargin)
+{
+    NS_ABORT_MSG_IF(margin < 0.0, "Forecast utilization margin must be non-negative");
+    NS_ABORT_MSG_IF(selectiveMargin < 0.0,
+                    "Selective forecast utilization margin must be non-negative");
     m_forecastUtilizationMargin = margin;
+    m_selectiveForecastUtilizationMargin = selectiveMargin;
     ScheduleDemandReevaluation();
 }
 
@@ -546,11 +563,27 @@ CellSleepController::EstimateSleepRisk(uint32_t candidateCell,
         }
     }
 
-    estimate.forecastUtilizationUncertainty = m_forecastUtilizationMargin;
-    estimate.utilizationUncertainty =
+    const double nonForecastUtilizationUncertainty =
         GetEffectiveUncertaintyScale() * (0.04 + 0.10 * estimate.maxUtilization +
-                                          0.06 * (farthestOffloadMeters / 1000.0)) +
-        estimate.forecastUtilizationUncertainty;
+                                          0.06 * (farthestOffloadMeters / 1000.0));
+    estimate.forecastUtilizationUncertainty = m_forecastUtilizationMargin;
+    if (m_selectiveForecastUtilizationMargin > estimate.forecastUtilizationUncertainty &&
+        m_config.forecastMarginTriggerSlack > 0.0)
+    {
+        const double baseSlack = m_config.utilizationLimit - estimate.maxUtilization -
+                                 nonForecastUtilizationUncertainty -
+                                 estimate.forecastUtilizationUncertainty;
+        const bool offloadDistanceEligible =
+            m_config.forecastMarginTriggerMaxOffloadMeters <= 0.0 ||
+            farthestOffloadMeters <= m_config.forecastMarginTriggerMaxOffloadMeters;
+        if (offloadDistanceEligible && baseSlack >= 0.0 &&
+            baseSlack <= m_config.forecastMarginTriggerSlack)
+        {
+            estimate.forecastUtilizationUncertainty = m_selectiveForecastUtilizationMargin;
+        }
+    }
+    estimate.utilizationUncertainty =
+        nonForecastUtilizationUncertainty + estimate.forecastUtilizationUncertainty;
     estimate.coverageUncertaintyDb =
         GetEffectiveUncertaintyScale() * (1.0 + 2.0 * (farthestOffloadMeters / 1000.0));
     estimate.safe =

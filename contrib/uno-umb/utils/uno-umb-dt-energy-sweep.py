@@ -3,6 +3,7 @@
 
 import argparse
 import csv
+import hashlib
 import itertools
 import json
 import subprocess
@@ -78,6 +79,9 @@ def make_failure_row(
     forecast_burst_rate_multiplier,
     forecast_burst_rate_error,
     forecast_burst_rate_uncertainty,
+    selective_forecast_burst_rate_uncertainty,
+    forecast_margin_trigger_slack,
+    forecast_margin_trigger_max_offload_m,
     forecast_correction_delay,
     traffic_profile,
     burst_rate_multiplier,
@@ -137,6 +141,20 @@ def make_failure_row(
             * forecast_burst_rate_uncertainty
         )
         forecast_utilization_margin = forecast_uncertain_extra_load_mbps / 18.0
+    selective_forecast_utilization_margin = 0.0
+    if (
+        forecast_lead_applied
+        and selective_forecast_burst_rate_uncertainty > forecast_burst_rate_uncertainty
+    ):
+        selective_forecast_uncertain_extra_load_mbps = (
+            shift_ues
+            * ue_rate
+            * (forecast_base_burst_rate_multiplier - 1.0)
+            * selective_forecast_burst_rate_uncertainty
+        )
+        selective_forecast_utilization_margin = (
+            selective_forecast_uncertain_extra_load_mbps / 18.0
+        )
     forecast_correction_time_s = (
         shift_start_s + forecast_correction_delay_s
         if forecast_correction_delay_s >= 0.0
@@ -173,6 +191,10 @@ def make_failure_row(
         "forecast_burst_rate_error": forecast_burst_rate_error,
         "forecast_burst_rate_uncertainty": forecast_burst_rate_uncertainty,
         "forecast_utilization_margin": forecast_utilization_margin,
+        "selective_forecast_burst_rate_uncertainty": selective_forecast_burst_rate_uncertainty,
+        "selective_forecast_utilization_margin": selective_forecast_utilization_margin,
+        "forecast_margin_trigger_slack": forecast_margin_trigger_slack,
+        "forecast_margin_trigger_max_offload_m": forecast_margin_trigger_max_offload_m,
         "forecast_correction_delay_s": forecast_correction_delay_s,
         "forecast_correction_applied": 1 if forecast_correction_applied else 0,
         "forecast_correction_time_s": (
@@ -246,6 +268,9 @@ def main():
     parser.add_argument("--forecast-burst-rate-multipliers", default="0.0")
     parser.add_argument("--forecast-burst-rate-errors", default="0.0")
     parser.add_argument("--forecast-burst-rate-uncertainties", default="0.0")
+    parser.add_argument("--selective-forecast-burst-rate-uncertainties", default="0.0")
+    parser.add_argument("--forecast-margin-trigger-slacks", default="0.0")
+    parser.add_argument("--forecast-margin-trigger-max-offloads", default="0.0")
     parser.add_argument("--forecast-correction-delays", default="off")
     parser.add_argument("--traffic-profiles", default="steady,center-burst")
     parser.add_argument("--burst-rate-multipliers", default="3.0")
@@ -289,6 +314,15 @@ def main():
         args.forecast_burst_rate_uncertainties,
         float,
     )
+    selective_forecast_burst_rate_uncertainties = split_csv(
+        args.selective_forecast_burst_rate_uncertainties,
+        float,
+    )
+    forecast_margin_trigger_slacks = split_csv(args.forecast_margin_trigger_slacks, float)
+    forecast_margin_trigger_max_offloads = split_csv(
+        args.forecast_margin_trigger_max_offloads,
+        float,
+    )
     forecast_correction_delays = split_csv(args.forecast_correction_delays)
     traffic_profiles = split_csv(args.traffic_profiles)
     burst_rate_multipliers = split_csv(args.burst_rate_multipliers, float)
@@ -325,6 +359,9 @@ def main():
             forecast_burst_rate_multipliers,
             forecast_burst_rate_errors,
             forecast_burst_rate_uncertainties,
+            selective_forecast_burst_rate_uncertainties,
+            forecast_margin_trigger_slacks,
+            forecast_margin_trigger_max_offloads,
             forecast_correction_delays,
             traffic_profiles,
             burst_rate_multipliers,
@@ -351,6 +388,9 @@ def main():
         forecast_burst_rate_multiplier,
         forecast_burst_rate_error,
         forecast_burst_rate_uncertainty,
+        selective_forecast_burst_rate_uncertainty,
+        forecast_margin_trigger_slack,
+        forecast_margin_trigger_max_offload_m,
         forecast_correction_delay,
         traffic_profile,
         burst_rate_multiplier,
@@ -378,6 +418,9 @@ def main():
             forecast_burst_rate_multiplier,
             forecast_burst_rate_error,
             forecast_burst_rate_uncertainty,
+            selective_forecast_burst_rate_uncertainty,
+            forecast_margin_trigger_slack,
+            forecast_margin_trigger_max_offload_m,
             forecast_correction_delay,
             traffic_profile,
             effective_burst_rate_multiplier,
@@ -386,20 +429,16 @@ def main():
             continue
         seen_scenarios.add(scenario_key)
 
+        scenario_hash = hashlib.sha1(
+            "|".join(str(item) for item in scenario_key).encode("utf-8")
+        ).hexdigest()[:10]
         run_id = (
-            f"{index:04d}-{policy}-seed{seed}-run{run}-ues{ues}-rate{ue_rate}"
-            f"-spacing{spacing}-unc{uncertainty_scale}-{traffic_profile}"
-            f"-burst{effective_burst_rate_multiplier}-amin{adaptive_min_uncertainty_scale}"
-            f"-amax{adaptive_max_uncertainty_scale}"
-            f"-ashock{adaptive_load_shock_gain}-autil{adaptive_utilization_gain}"
-            f"-arelax{adaptive_relaxation}"
-            f"-alatent{adaptive_latent_load_threshold}-arelief{adaptive_wake_relief_threshold}"
-            f"-flead{forecast_lead_time}"
-            f"-minflead{min_forecast_lead_time}"
-            f"-fburst{forecast_burst_rate_multiplier}"
-            f"-ferr{forecast_burst_rate_error}"
-            f"-func{forecast_burst_rate_uncertainty}"
-            f"-fcorr{forecast_correction_delay}"
+            f"{index:04d}-{policy}-s{seed}-r{run}-u{ues}-d{spacing}"
+            f"-{traffic_profile}-b{effective_burst_rate_multiplier}"
+            f"-fe{forecast_burst_rate_error}-fu{forecast_burst_rate_uncertainty}"
+            f"-sfu{selective_forecast_burst_rate_uncertainty}"
+            f"-sl{forecast_margin_trigger_slack}-od{forecast_margin_trigger_max_offload_m}"
+            f"-{scenario_hash}"
         ).replace(".", "p")
         summary_csv = out_dir / f"{run_id}-summary.csv"
         event_csv = out_dir / f"{run_id}-events.csv"
@@ -430,6 +469,9 @@ def main():
             f"--forecastBurstRateMultiplier={forecast_burst_rate_multiplier} "
             f"--forecastBurstRateError={forecast_burst_rate_error} "
             f"--forecastBurstRateUncertainty={forecast_burst_rate_uncertainty} "
+            f"--selectiveForecastBurstRateUncertainty={selective_forecast_burst_rate_uncertainty} "
+            f"--forecastMarginTriggerSlack={forecast_margin_trigger_slack} "
+            f"--forecastMarginTriggerMaxOffloadMeters={forecast_margin_trigger_max_offload_m} "
             f"{correction_arg}"
             f"--trafficProfile={traffic_profile} "
             f"--burstRateMultiplier={effective_burst_rate_multiplier} "
@@ -461,6 +503,11 @@ def main():
                 "forecast_burst_rate_multiplier": forecast_burst_rate_multiplier,
                 "forecast_burst_rate_error": forecast_burst_rate_error,
                 "forecast_burst_rate_uncertainty": forecast_burst_rate_uncertainty,
+                "selective_forecast_burst_rate_uncertainty": (
+                    selective_forecast_burst_rate_uncertainty
+                ),
+                "forecast_margin_trigger_slack": forecast_margin_trigger_slack,
+                "forecast_margin_trigger_max_offload_m": forecast_margin_trigger_max_offload_m,
                 "forecast_correction_delay": forecast_correction_delay,
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,
@@ -498,6 +545,11 @@ def main():
                     forecast_burst_rate_multiplier=forecast_burst_rate_multiplier,
                     forecast_burst_rate_error=forecast_burst_rate_error,
                     forecast_burst_rate_uncertainty=forecast_burst_rate_uncertainty,
+                    selective_forecast_burst_rate_uncertainty=(
+                        selective_forecast_burst_rate_uncertainty
+                    ),
+                    forecast_margin_trigger_slack=forecast_margin_trigger_slack,
+                    forecast_margin_trigger_max_offload_m=forecast_margin_trigger_max_offload_m,
                     forecast_correction_delay=forecast_correction_delay,
                     traffic_profile=traffic_profile,
                     burst_rate_multiplier=effective_burst_rate_multiplier,
@@ -535,6 +587,11 @@ def main():
                 "min_forecast_lead_time_s": as_seconds(min_forecast_lead_time),
                 "forecast_burst_rate_error": forecast_burst_rate_error,
                 "forecast_burst_rate_uncertainty": forecast_burst_rate_uncertainty,
+                "selective_forecast_burst_rate_uncertainty": (
+                    selective_forecast_burst_rate_uncertainty
+                ),
+                "forecast_margin_trigger_slack": forecast_margin_trigger_slack,
+                "forecast_margin_trigger_max_offload_m": forecast_margin_trigger_max_offload_m,
                 "forecast_correction_delay_s": as_optional_seconds(forecast_correction_delay),
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,

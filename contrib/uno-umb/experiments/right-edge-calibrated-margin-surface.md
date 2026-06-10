@@ -130,8 +130,9 @@ appears tight, so easy rows do not pay the full energy cost of the hard row.
 
 ## Next Step
 
-Design a selective forecast-margin policy.  A good first experiment is a
-two-level rule that uses `0.25` by default and escalates to `0.35` only when the
-forecasted post-shift utilization is close to the risk limit.  The paper target
-would be to recover the 11/11 safe-run rate while retaining more of the
-`0.25` margin energy savings on `500 m` and `525 m` rows.
+The first selective design is recorded in
+`right-edge-selective-overlap-margin.md`.  A utilization-slack trigger alone is
+not selective enough, but adding a close-offload overlap gate recovers the hard
+`475 m` sample while preserving the high-saving `500/525 m` behavior for the
+same seed/run.  The next step is the full `475/500/525 m` replicated surface for
+that overlap-gated controller.

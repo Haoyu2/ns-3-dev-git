@@ -14,6 +14,8 @@ CONTROL_ORDER = {
     "no forecast": 1,
     "perfect 1s lead": 2,
     "-25% forecast + 0.25 margin": 3,
+    "-25% forecast + selective 0.25/0.35 margin": 4,
+    "-25% forecast + selective overlap margin": 5,
 }
 POLICY_ORDER = {
     "all-on": 0,
@@ -45,6 +47,9 @@ def normalize_row(row):
     row.setdefault("min_forecast_lead_time_s", "0.0")
     row.setdefault("forecast_burst_rate_error", "0.0")
     row.setdefault("forecast_burst_rate_uncertainty", "0.0")
+    row.setdefault("selective_forecast_burst_rate_uncertainty", "0.0")
+    row.setdefault("forecast_margin_trigger_slack", "0.0")
+    row.setdefault("forecast_margin_trigger_max_offload_m", "0.0")
     row.setdefault("forecast_correction_delay_s", "-1.0")
     return row
 
@@ -75,12 +80,19 @@ def control_label(row):
     min_lead = as_float(row, "min_forecast_lead_time_s")
     error = as_float(row, "forecast_burst_rate_error")
     uncertainty = as_float(row, "forecast_burst_rate_uncertainty")
+    selective_uncertainty = as_float(row, "selective_forecast_burst_rate_uncertainty")
+    trigger_slack = as_float(row, "forecast_margin_trigger_slack")
+    trigger_max_offload = as_float(row, "forecast_margin_trigger_max_offload_m")
 
     if profile == "center-burst" or lead == 0.0:
         return "no forecast"
     if lead == 1.0 and min_lead == 0.0 and error == 0.0 and uncertainty == 0.0:
         return "perfect 1s lead"
     if lead == 1.0 and min_lead == 1.0 and error == -0.25 and uncertainty == 0.25:
+        if selective_uncertainty == 0.35 and trigger_slack > 0.0:
+            if trigger_max_offload > 0.0:
+                return "-25% forecast + selective overlap margin"
+            return "-25% forecast + selective 0.25/0.35 margin"
         return "-25% forecast + 0.25 margin"
     return "other"
 

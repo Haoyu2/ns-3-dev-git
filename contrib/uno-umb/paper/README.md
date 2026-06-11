@@ -21,12 +21,11 @@ make -C contrib/uno-umb/paper figures
 Current backbone:
 
 - Reactive latent-demand wakeup for unannounced center-burst shifts.
-- Selective overlap-gated forecast margin for anticipated right-edge shifts.
-- Compact result summary in `data/main-evaluation-summary.csv`.
+- Calibrated selective forecast margin for anticipated right-edge shifts.
+- Compact 5-seed result summary in `data/main-evaluation-summary.csv`.
 - Reproducibility notes in
-  `contrib/uno-umb/experiments/expanded-sweep-control-plane-audit.md` and
-  `contrib/uno-umb/experiments/right-edge-ideal-margin-comparison.md`.
+  `contrib/uno-umb/experiments/replication-5seed3run-ideal.md`.
 
-Before external review, add the literature references, update the limitations
-section after the next broader sweep, and replace any placeholder venue-specific
-formatting with the target template.
+Before external review, run the next UE-count/load sweep, tighten the
+limitations section around the remaining boundary row, and replace any
+placeholder venue-specific formatting with the target template.

@@ -69,18 +69,26 @@ PANELS = (
                 dy=1.1,
             ),
             PointSpec(
-                label="0.25 / selective|margin",
+                label="0.25 margin",
                 scenario="right-edge 1.5x",
-                controls=(
-                    "-25% forecast + 0.25 margin",
-                    "-25% forecast + selective overlap margin",
-                ),
+                controls=("-25% forecast + 0.25 margin",),
                 policy="twin",
                 color="blue!70!black",
                 marker="square*",
-                anchor="north east",
-                dx=-0.45,
-                dy=-1.2,
+                anchor="south east",
+                dx=-0.35,
+                dy=1.0,
+            ),
+            PointSpec(
+                label="Selective|margin",
+                scenario="right-edge 1.5x",
+                controls=("-25% forecast + selective overlap margin",),
+                policy="twin",
+                color="teal!70!black",
+                marker="diamond*",
+                anchor="south west",
+                dx=0.35,
+                dy=1.0,
             ),
             PointSpec(
                 label="Global 0.35|margin",
@@ -90,7 +98,7 @@ PANELS = (
                 color="orange!80!black",
                 marker="triangle*",
                 anchor="north east",
-                dx=-0.35,
+                dx=-0.45,
                 dy=-0.8,
             ),
         ),
@@ -185,15 +193,15 @@ def write_point(handle, row, point):
 
 def write_panel(handle, rows, panel):
     ylabel = "ylabel={Safe feasible-row rate (\\%)},"
-    handle.write("\\begin{minipage}{0.98\\linewidth}\n")
+    handle.write("\\begin{minipage}{0.96\\linewidth}\n")
     handle.write("\\centering\n")
     handle.write("\\begin{tikzpicture}\n")
     handle.write("\\begin{axis}[\n")
     handle.write(f"  title={{{tex_escape(panel.title)}}},\n")
-    handle.write("  width=0.98\\linewidth,\n")
-    handle.write("  height=0.54\\linewidth,\n")
+    handle.write("  width=0.96\\linewidth,\n")
+    handle.write("  height=0.53\\linewidth,\n")
     handle.write("  xmin=0,\n")
-    handle.write("  xmax=21,\n")
+    handle.write("  xmax=25,\n")
     handle.write("  ymin=70,\n")
     handle.write("  ymax=103,\n")
     handle.write("  xlabel={Safe energy saving (\\%)},\n")
@@ -205,7 +213,7 @@ def write_panel(handle, rows, panel):
     handle.write("  clip=false,\n")
     handle.write("]\n")
     handle.write(
-        "  \\addplot[densely dotted, gray!70] coordinates {(0,100) (21,100)};\n"
+        "  \\addplot[densely dotted, gray!70] coordinates {(0,100) (25,100)};\n"
     )
     for point in panel.points:
         write_point(handle, find_rows(rows, point), point)

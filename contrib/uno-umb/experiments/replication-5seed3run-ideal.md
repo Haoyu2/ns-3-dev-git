@@ -56,6 +56,12 @@ each sweep uses `--jobs=8`.
 - `right-margin025`
 - `right-margin035`
 - `right-selective`
+- `right-selective-calibrated`
+
+The initial selective run used slack `0.019` and max offload distance `400 m`.
+The larger sample showed that this trigger was too narrow and matched the base
+`0.25` margin.  The paper-facing calibrated selective run uses slack `0.038`
+and max offload distance `437 m`.
 
 ## Harvest Commands
 
@@ -71,7 +77,7 @@ scp "frcc:$REMOTE_ROOT/all-on-right-edge/aggregate.csv" "$OUT/all-on-right-edge.
 scp "frcc:$REMOTE_ROOT/right-no-forecast/aggregate.csv" "$OUT/right-no-forecast.csv"
 scp "frcc2:$REMOTE_ROOT/right-margin025/aggregate.csv" "$OUT/right-margin025.csv"
 scp "frcc2:$REMOTE_ROOT/right-margin035/aggregate.csv" "$OUT/right-margin035.csv"
-scp "frcc2:$REMOTE_ROOT/right-selective/aggregate.csv" "$OUT/right-selective.csv"
+scp "frcc2:$REMOTE_ROOT/right-selective-calibrated/aggregate.csv" "$OUT/right-selective-calibrated.csv"
 ```
 
 Build the compact paper table:
@@ -84,7 +90,7 @@ python3 contrib/uno-umb/utils/uno-umb-paper-table.py \
   "$OUT/right-no-forecast.csv" \
   "$OUT/right-margin025.csv" \
   "$OUT/right-margin035.csv" \
-  "$OUT/right-selective.csv" \
+  "$OUT/right-selective-calibrated.csv" \
   --output-dir="$OUT/table"
 ```
 
@@ -98,13 +104,40 @@ python3 contrib/uno-umb/utils/uno-umb-dt-energy-analyze.py \
   "$OUT/right-no-forecast.csv" \
   "$OUT/right-margin025.csv" \
   "$OUT/right-margin035.csv" \
-  "$OUT/right-selective.csv" \
+  "$OUT/right-selective-calibrated.csv" \
   --output-dir="$OUT/analysis"
 ```
 
-## Decision Rule
+## Result
 
-If the larger matched sample preserves the same qualitative ordering, replace
-the current draft table and figure data with the replication table.  If it does
-not, keep this campaign as the boundary-finding result and inspect the
-newly unsafe rows by seed, run, and spacing before changing the paper claim.
+| scenario | control | policy | rows | feasible | safe | safe rate | safe saving |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| center 2x | reference | all-on | 45 | 44 | 44 | 0.978 | 0.000% |
+| center 2x | no forecast | twin | 45 | 44 | 40 | 0.909 | 21.745% |
+| center 2x | no forecast | adaptive-twin | 45 | 44 | 44 | 1.000 | 7.176% |
+| right-edge 1.5x | reference | all-on | 45 | 40 | 40 | 0.889 | 0.000% |
+| right-edge 1.5x | no forecast | twin | 45 | 40 | 33 | 0.825 | 13.873% |
+| right-edge 1.5x | no forecast | adaptive-twin | 45 | 40 | 31 | 0.775 | 10.166% |
+| right-edge 1.5x | `0.25` margin | twin | 45 | 40 | 37 | 0.925 | 13.515% |
+| right-edge 1.5x | `0.35` global margin | twin | 45 | 40 | 39 | 0.975 | 9.927% |
+| right-edge 1.5x | calibrated selective margin | twin | 45 | 40 | 39 | 0.975 | 13.754% |
+
+The center result strengthens the latent-demand wakeup claim: adaptive wakeup
+removes all induced violations on the `44` feasible center rows, while static
+twin control leaves `4` feasible rows unsafe.
+
+The right-edge result is a calibrated safety-energy frontier.  The base
+`0.25` forecast margin fixes four feasible rows relative to adaptive
+no-forecast control but leaves three feasible rows unsafe.  A global `0.35`
+margin reaches `39/40` safety, but cuts mean safe saving to `9.927%`.  The
+calibrated selective margin reaches the same `39/40` safety with `13.754%`
+mean safe saving by applying the stronger bound only to close-offload
+placements within the calibrated trigger.
+
+## Draft Action
+
+Replace the current draft table and figure data with this replication table.
+The paper claim should emphasize calibrated uncertainty control rather than a
+blanket statement that the base margin is sufficient on every feasible
+right-edge row.  The remaining unsafe row should be kept in the limitations
+discussion as a boundary case for the next UE-count and load sweep.

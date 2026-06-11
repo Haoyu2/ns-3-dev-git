@@ -1,13 +1,13 @@
 % Generated from paper/data/main-evaluation-summary.csv by utils/uno-umb-paper-figures.py.
-\begin{minipage}{0.98\linewidth}
+\begin{minipage}{0.96\linewidth}
 \centering
 \begin{tikzpicture}
 \begin{axis}[
   title={Center burst, 2x load},
-  width=0.98\linewidth,
-  height=0.54\linewidth,
+  width=0.96\linewidth,
+  height=0.53\linewidth,
   xmin=0,
-  xmax=21,
+  xmax=25,
   ymin=70,
   ymax=103,
   xlabel={Safe energy saving (\%)},
@@ -18,24 +18,24 @@
   tick align=outside,
   clip=false,
 ]
-  \addplot[densely dotted, gray!70] coordinates {(0,100) (21,100)};
-  \addplot[only marks, mark=*, mark size=2.6pt, color=black, mark options={fill=black}] coordinates {(18.604,77.778)};
-  \node[font=\scriptsize, align=center, anchor=south east] at (axis cs:18.154,78.778) {Static twin\\14/18};
+  \addplot[densely dotted, gray!70] coordinates {(0,100) (25,100)};
+  \addplot[only marks, mark=*, mark size=2.6pt, color=black, mark options={fill=black}] coordinates {(21.745,90.909)};
+  \node[font=\scriptsize, align=center, anchor=south east] at (axis cs:21.295,91.909) {Static twin\\40/44};
   \addplot[only marks, mark=square*, mark size=2.6pt, color=blue!70!black, mark options={fill=blue!70!black}] coordinates {(7.176,100.000)};
-  \node[font=\scriptsize, align=center, anchor=north west] at (axis cs:7.626,98.800) {Adaptive wakeup\\18/18};
+  \node[font=\scriptsize, align=center, anchor=north west] at (axis cs:7.626,98.800) {Adaptive wakeup\\44/44};
 \end{axis}
 \end{tikzpicture}
 \end{minipage}
 \par\vspace{0.8ex}
-\begin{minipage}{0.98\linewidth}
+\begin{minipage}{0.96\linewidth}
 \centering
 \begin{tikzpicture}
 \begin{axis}[
   title={Right-edge transition, 1.5x load},
-  width=0.98\linewidth,
-  height=0.54\linewidth,
+  width=0.96\linewidth,
+  height=0.53\linewidth,
   xmin=0,
-  xmax=21,
+  xmax=25,
   ymin=70,
   ymax=103,
   xlabel={Safe energy saving (\%)},
@@ -46,13 +46,15 @@
   tick align=outside,
   clip=false,
 ]
-  \addplot[densely dotted, gray!70] coordinates {(0,100) (21,100)};
-  \addplot[only marks, mark=*, mark size=2.6pt, color=black, mark options={fill=black}] coordinates {(16.295,81.250)};
-  \node[font=\scriptsize, align=center, anchor=south east] at (axis cs:15.845,82.350) {No forecast\\13/16};
-  \addplot[only marks, mark=square*, mark size=2.6pt, color=blue!70!black, mark options={fill=blue!70!black}] coordinates {(16.744,100.000)};
-  \node[font=\scriptsize, align=center, anchor=north east] at (axis cs:16.294,98.800) {0.25 / selective\\margin\\16/16};
-  \addplot[only marks, mark=triangle*, mark size=2.6pt, color=orange!80!black, mark options={fill=orange!80!black}] coordinates {(10.465,93.750)};
-  \node[font=\scriptsize, align=center, anchor=north east] at (axis cs:10.115,92.950) {Global 0.35\\margin\\15/16};
+  \addplot[densely dotted, gray!70] coordinates {(0,100) (25,100)};
+  \addplot[only marks, mark=*, mark size=2.6pt, color=black, mark options={fill=black}] coordinates {(13.873,82.500)};
+  \node[font=\scriptsize, align=center, anchor=south east] at (axis cs:13.423,83.600) {No forecast\\33/40};
+  \addplot[only marks, mark=square*, mark size=2.6pt, color=blue!70!black, mark options={fill=blue!70!black}] coordinates {(13.515,92.500)};
+  \node[font=\scriptsize, align=center, anchor=south east] at (axis cs:13.165,93.500) {0.25 margin\\37/40};
+  \addplot[only marks, mark=diamond*, mark size=2.6pt, color=teal!70!black, mark options={fill=teal!70!black}] coordinates {(13.754,97.500)};
+  \node[font=\scriptsize, align=center, anchor=south west] at (axis cs:14.104,98.500) {Selective\\margin\\39/40};
+  \addplot[only marks, mark=triangle*, mark size=2.6pt, color=orange!80!black, mark options={fill=orange!80!black}] coordinates {(9.927,97.500)};
+  \node[font=\scriptsize, align=center, anchor=north east] at (axis cs:9.477,96.700) {Global 0.35\\margin\\39/40};
 \end{axis}
 \end{tikzpicture}
 \end{minipage}

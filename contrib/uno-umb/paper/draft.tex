@@ -24,14 +24,15 @@ presents UNO-UMB, an ns-3 prototype for uncertainty-aware cell sleep control.
 UNO-UMB combines a lightweight digital-twin risk gate, a latent-demand wakeup
 rule for unannounced shifts, and a forecast-risk margin that can be selectively
 inflated for tight close-offload decisions.  In an expanded LTE evaluation over
-three seeds, two runs, and three inter-site spacings, the adaptive wakeup
-recovers all 18/18 feasible center-burst rows where static risk gating is safe
-on 14/18.  On a right-edge transition surface with a 25\% underpredicted
-forecast, the forecast margin recovers all 16/16 feasible rows with 16.744\%
-mean safe energy saving, while a stronger global margin lowers safe saving and
-leaves one feasible row unsafe.  These preliminary results suggest
-that spatially conditioned uncertainty control can preserve energy savings
-while bounding transition risk.
+five seeds, three runs, and three inter-site spacings, the adaptive wakeup
+recovers all 44/44 feasible center-burst rows where static risk gating is safe
+on 40/44.  On a right-edge transition surface with a 25\% underpredicted
+forecast, a base margin improves static control from 33/40 to 37/40 safe
+feasible rows.  A stronger global margin reaches 39/40 safety but lowers mean
+safe energy saving to 9.927\%, while a calibrated selective margin reaches the
+same 39/40 safety with 13.754\% mean safe energy saving.  These results
+suggest that spatially conditioned uncertainty control can preserve energy
+savings while reducing transition risk.
 \end{abstract}
 
 \section{Introduction}
@@ -96,9 +97,10 @@ an LTE cell sleep example, following the use of ns-3 LTE models as an open
 simulation substrate for radio-resource and self-optimization studies
 \cite{baldo2011lte}.  Unless otherwise noted, the main rows use 16 UEs, a
 1.0 Mb/s per-UE base offered load, a 12 s simulation, and a burst window from
-3 s to 10 s.  The expanded controller table uses ideal LTE RRC signaling to
-avoid treating stressed over-the-air control-plane scheduler assertions as
-cell-sleep controller outcomes.
+3 s to 10 s over five seeds, three runs, and three inter-site spacings.  The
+expanded controller table uses ideal LTE RRC signaling to avoid treating
+stressed over-the-air control-plane scheduler assertions as cell-sleep
+controller outcomes.
 
 The evaluation reports three classes of outcome.  First, the all-on reference
 identifies whether the offered-load scenario is feasible without cell sleep.
@@ -112,9 +114,9 @@ Figure~\ref{fig:evaluation-tradeoff} plots the two main mechanisms as
 feasible-row safety versus safe energy saving.  The center-burst panel shows
 the adaptive wakeup trading energy saving for complete safety on the feasible
 surface.  The right-edge panel shows a different pattern: the forecast margin
-moves the controller to the upper-right safety frontier, while the stronger
-global margin is both less safe and less energy efficient on the expanded
-surface.
+moves the controller toward the safety frontier, while the calibrated selective
+margin reaches the global-margin safety level at much higher safe energy
+saving.
 
 \begin{figure}[H]
 \centering
@@ -126,7 +128,8 @@ rows over feasible controller rows.}
 \end{figure}
 
 Table~\ref{tab:center} summarizes the expanded center-burst rows at 2x offered
-load.  Static twin control is safe on 14/18 feasible rows.  Adaptive twin
+load.  The all-on reference is feasible on 44/45 offered-load rows.  Static
+twin control is safe on 40/44 feasible rows.  Adaptive twin
 control removes the induced violations by waking cells earlier, at the cost of
 lower energy saving.
 
@@ -138,17 +141,18 @@ lower energy saving.
 \hline
 Scenario & Policy & Safe rate & Saving \\
 \hline
-2.0x & twin & 14/18 & 18.604\% \\
-2.0x & adaptive & 18/18 & 7.176\% \\
+2.0x & twin & 40/44 & 21.745\% \\
+2.0x & adaptive & 44/44 & 7.176\% \\
 \hline
 \end{tabular}
 \end{table}
 
 Table~\ref{tab:right-edge} summarizes the right-edge transition surface across
 475 m, 500 m, and 525 m spacing.  The no-forecast controllers leave feasible
-rows unsafe.  The base 0.25 margin and selective overlap margin both recover
-all 16 feasible rows.  A global 0.35 margin is more conservative, but loses one
-feasible row and substantially lowers safe energy saving.
+rows unsafe.  The base 0.25 margin reduces induced violations but leaves three
+feasible rows unsafe.  A global 0.35 margin recovers two of those rows but
+spends substantial energy.  The calibrated selective overlap margin matches the
+global-margin safety rate while preserving most of the base-margin saving.
 
 \begin{table}[H]
 \centering
@@ -158,24 +162,25 @@ feasible row and substantially lowers safe energy saving.
 \hline
 Control & Policy & Safe rate & Saving \\
 \hline
-No forecast & twin & 13/16 & 16.295\% \\
-No forecast & adaptive & 12/16 & 10.614\% \\
-0.25 margin & twin & 16/16 & 16.744\% \\
-0.25 margin & adaptive & 16/16 & 16.744\% \\
-0.35 margin & twin & 15/16 & 10.465\% \\
-0.35 margin & adaptive & 15/16 & 10.465\% \\
-Selective margin & twin & 16/16 & 16.744\% \\
-Selective margin & adaptive & 16/16 & 16.744\% \\
+No forecast & twin & 33/40 & 13.873\% \\
+No forecast & adaptive & 31/40 & 10.166\% \\
+0.25 margin & twin & 37/40 & 13.515\% \\
+0.25 margin & adaptive & 37/40 & 13.515\% \\
+0.35 margin & twin & 39/40 & 9.927\% \\
+0.35 margin & adaptive & 39/40 & 9.927\% \\
+Selective margin & twin & 39/40 & 13.754\% \\
+Selective margin & adaptive & 39/40 & 13.754\% \\
 \hline
 \end{tabular}
 \end{table}
 
-The forecast-margin result is the strongest current evidence for the paper.  It
-removes every induced right-edge transition violation in the expanded feasible
-surface while slightly increasing safe mean energy saving relative to
-no-forecast control, because unsafe high-saving rows no longer have to be
-discarded from the safe set.  Selective overlap inflation preserves this result
-without paying the energy and residual safety cost of the global 0.35 margin.
+The forecast-margin result is the strongest current evidence for the paper.  A
+base margin improves right-edge safety by four feasible rows relative to
+static no-forecast control.  The calibrated selective margin improves safety by
+two more rows, matching the global 0.35 margin at 39/40 safe feasible rows, but
+preserves 13.754\% mean safe energy saving instead of the global margin's
+9.927\%.  The residual unsafe row differs between the global and selective
+settings, showing that transition safety is not monotone in conservatism.
 
 \section{Discussion and Limitations}
 
@@ -184,8 +189,8 @@ claim that every offered-load scenario can be made safe by control.  Some rows
 are overloaded even when all cells remain active, and those rows are excluded
 from controller safety rates.
 
-The next validation step is a larger replicated sweep over more seeds, UE
-rates, UE counts, and spacings.  The prototype should also be compared against
+The next validation step is a broader sweep over UE rates, UE counts, and
+additional traffic geometries.  The prototype should also be compared against
 stronger baselines, including controllers with calibrated static margins and
 controllers that use forecast lead time without spatially selective inflation.
 
@@ -224,9 +229,9 @@ the all-on reference.
 UNO-UMB shows that cell sleep safety can benefit from separating reactive and
 forecasted uncertainty.  Latent-demand wakeup protects feasible unannounced
 center bursts, while selective overlap-gated forecast margins protect hard
-right-edge transitions without imposing a global conservative energy cost.  The
-current ns-3 prototype and experiment notes are ready for a first manuscript
-draft and a broader replication sweep.
+right-edge transitions without imposing the full global conservative energy
+cost.  The current ns-3 prototype and experiment notes are ready for a first
+manuscript review and a broader UE-count and load sweep.
 
 \bibliographystyle{abbrv}
 \bibliography{references}

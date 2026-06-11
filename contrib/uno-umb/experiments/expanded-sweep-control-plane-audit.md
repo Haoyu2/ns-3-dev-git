@@ -158,9 +158,10 @@ expanded rerun finishes.  The current real-RRC data show adaptive control
 improving safety over static `twin`, but the failure-rate column is not clean
 enough for a strong paper table.
 
-## Next Step
+## Ideal-RRC Expanded Rerun
 
-Rerun the same expanded table with ideal RRC enabled:
+The same expanded table was rerun with ideal RRC enabled.  The rerun used
+`--jobs=8` on each VM and completed without failed rows:
 
 ```bash
 python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
@@ -189,3 +190,28 @@ python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
   --keep-going \
   --jobs=8
 ```
+
+The combined ideal-RRC table is:
+
+| scenario | control | policy | rows | all-on feasible rate | feasible controller rows | safe-run rate | safe energy saving mean (%) | induced violation rate | failure rate |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| center 2x | reference | all-on | 18 | 1.000 | 0 | 1.000 | 0.000 | 0.000 | 0.000 |
+| center 2x | no forecast | twin | 18 | 1.000 | 18 | 0.778 | 18.604 | 0.222 | 0.000 |
+| center 2x | no forecast | adaptive-twin | 18 | 1.000 | 18 | 1.000 | 7.176 | 0.000 | 0.000 |
+| right-edge 1.5x | reference | all-on | 18 | 0.889 | 0 | 0.889 | 0.000 | 0.000 | 0.000 |
+| right-edge 1.5x | no forecast | twin | 18 | 0.889 | 16 | 0.812 | 16.295 | 0.188 | 0.000 |
+| right-edge 1.5x | no forecast | adaptive-twin | 18 | 0.889 | 16 | 0.750 | 10.614 | 0.250 | 0.000 |
+| right-edge 1.5x | -25% forecast + selective overlap margin | twin | 18 | 0.889 | 16 | 1.000 | 16.744 | 0.000 | 0.000 |
+| right-edge 1.5x | -25% forecast + selective overlap margin | adaptive-twin | 18 | 0.889 | 16 | 1.000 | 16.744 | 0.000 | 0.000 |
+
+This table is the cleaner manuscript result.  Adaptive latent-demand wakeup
+recovers all `18/18` feasible center-burst rows where static `twin` is safe on
+`14/18`.  Selective forecast overlap margin recovers all `16/16` feasible
+right-edge rows where no-forecast `twin` is safe on `13/16` and no-forecast
+`adaptive-twin` is safe on `12/16`.
+
+## Next Step
+
+Use the ideal-RRC expanded table as the main manuscript table, and keep the
+real-RRC table as a control-plane audit that explains why the larger controller
+sweeps abstract RRC signaling.

@@ -23,6 +23,7 @@ POLICY_ORDER = {
     "twin": 1,
     "adaptive-twin": 2,
 }
+Z_95 = 1.959963984540054
 
 
 def as_float(row, field, default=0.0):
@@ -123,6 +124,31 @@ def stdev(values):
     return math.sqrt(sum((value - average) ** 2 for value in values) / (len(values) - 1))
 
 
+def proportion_ci95(successes, total):
+    if total <= 0:
+        return 0.0, 0.0
+    proportion = successes / total
+    z2 = Z_95 * Z_95
+    denominator = 1.0 + z2 / total
+    center = (proportion + z2 / (2.0 * total)) / denominator
+    half_width = (
+        Z_95
+        * math.sqrt((proportion * (1.0 - proportion) + z2 / (4.0 * total)) / total)
+        / denominator
+    )
+    return max(0.0, center - half_width), min(1.0, center + half_width)
+
+
+def mean_ci95(values):
+    if not values:
+        return 0.0, 0.0
+    average = mean(values)
+    if len(values) < 2:
+        return average, average
+    half_width = Z_95 * stdev(values) / math.sqrt(len(values))
+    return average - half_width, average + half_width
+
+
 def format_number(value):
     if abs(value) >= 100:
         return f"{value:.2f}"
@@ -192,15 +218,26 @@ def summarize(rows):
 
         if policy == "all-on":
             feasible = [1.0 if as_float(row, "sla_violation") < 0.5 else 0.0 for row in group_rows]
+            safe_runs = int(sum(feasible))
+            failures = [1.0 if is_failed(row) else 0.0 for row in group_rows]
+            safe_low, safe_high = proportion_ci95(safe_runs, len(feasible))
             base.update(
                 {
+                    "all_on_feasible_rows": safe_runs,
                     "all_on_feasible_rate": mean(feasible),
                     "feasible_controller_rows": 0,
+                    "safe_runs": safe_runs,
                     "safe_run_rate": mean(feasible),
+                    "safe_run_ci95_low": safe_low,
+                    "safe_run_ci95_high": safe_high,
                     "safe_energy_saving_pct_mean": 0.0,
                     "safe_energy_saving_pct_stdev": 0.0,
+                    "safe_energy_saving_pct_ci95_low": 0.0,
+                    "safe_energy_saving_pct_ci95_high": 0.0,
+                    "induced_violations": 0,
                     "induced_violation_rate": 0.0,
-                    "failure_rate": mean([1.0 if is_failed(row) else 0.0 for row in group_rows]),
+                    "failures": int(sum(failures)),
+                    "failure_rate": mean(failures),
                 }
             )
             summary_rows.append(base)
@@ -228,17 +265,28 @@ def summarize(rows):
             if all_on.get(sample_key(row))
             and as_float(all_on[sample_key(row)], "sla_violation") < 0.5
         ]
+        safe_runs = int(sum(safe_flags))
+        safe_low, safe_high = proportion_ci95(safe_runs, len(safe_flags))
+        saving_low, saving_high = mean_ci95(safe_energy)
 
         base.update(
             {
+                "all_on_feasible_rows": len(reference_feasible),
                 "all_on_feasible_rate": len(reference_feasible) / len(group_rows)
                 if group_rows
                 else 0.0,
                 "feasible_controller_rows": len(feasible_rows),
+                "safe_runs": safe_runs,
                 "safe_run_rate": mean(safe_flags),
+                "safe_run_ci95_low": safe_low,
+                "safe_run_ci95_high": safe_high,
                 "safe_energy_saving_pct_mean": mean(safe_energy),
                 "safe_energy_saving_pct_stdev": stdev(safe_energy),
+                "safe_energy_saving_pct_ci95_low": saving_low,
+                "safe_energy_saving_pct_ci95_high": saving_high,
+                "induced_violations": int(sum(induced)),
                 "induced_violation_rate": mean(induced),
+                "failures": int(sum(failures)),
                 "failure_rate": mean(failures),
             }
         )
@@ -262,12 +310,20 @@ def write_csv(rows, output_csv):
         "ue_rate_mbps",
         "spacings_m",
         "rows",
+        "all_on_feasible_rows",
         "all_on_feasible_rate",
         "feasible_controller_rows",
+        "safe_runs",
         "safe_run_rate",
+        "safe_run_ci95_low",
+        "safe_run_ci95_high",
         "safe_energy_saving_pct_mean",
         "safe_energy_saving_pct_stdev",
+        "safe_energy_saving_pct_ci95_low",
+        "safe_energy_saving_pct_ci95_high",
+        "induced_violations",
         "induced_violation_rate",
+        "failures",
         "failure_rate",
     ]
     with output_csv.open("w", newline="") as handle:
@@ -282,12 +338,20 @@ def write_markdown(rows, output_md):
         "control",
         "policy",
         "rows",
+        "all_on_feasible_rows",
         "all_on_feasible_rate",
         "feasible_controller_rows",
+        "safe_runs",
         "safe_run_rate",
+        "safe_run_ci95_low",
+        "safe_run_ci95_high",
         "safe_energy_saving_pct_mean",
         "safe_energy_saving_pct_stdev",
+        "safe_energy_saving_pct_ci95_low",
+        "safe_energy_saving_pct_ci95_high",
+        "induced_violations",
         "induced_violation_rate",
+        "failures",
         "failure_rate",
         "spacings_m",
     ]

@@ -185,6 +185,70 @@ three spacings, three UE counts, and three per-UE loads.  The all-on reference
 is itself infeasible on the heaviest cells, so those rows remain outside the
 controller safety denominator.
 
+## Full-Grid Adaptive Baselines
+
+The next campaign compared the gated result against matched adaptive baselines
+on the same three-spacing load grid.  This checks whether the `115/115` result
+is caused by the actionability gate rather than only by the adaptive wakeup or
+by a generic forecast margin.
+
+Output root:
+
+```bash
+ROOT=~/haoyu/ns-3-uno-umb-results/full-grid-adaptive-baselines-3seed2run-ideal-20260611
+```
+
+`frcc` ran adaptive control without forecast lead or forecast margin:
+
+```bash
+python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
+  --policies=adaptive-twin \
+  --seeds=1,2,3 --runs=1,2 \
+  --ue-counts=12,16,20 --ue-rates=0.8,1.0,1.2 \
+  --spacings=475,500,525 \
+  --traffic-profiles=right-edge-burst --burst-rate-multipliers=1.5 \
+  --sim-time=12.0s --shift-start=3.0s --shift-stop=10.0s \
+  --use-ideal-rrc-values=true --skip-build --keep-going --jobs=8 \
+  --output-dir="$ROOT/right-no-forecast-adaptive"
+```
+
+`frcc2` ran adaptive control with an ungated `0.25` forecast margin:
+
+```bash
+python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
+  --policies=adaptive-twin \
+  --seeds=1,2,3 --runs=1,2 \
+  --ue-counts=12,16,20 --ue-rates=0.8,1.0,1.2 \
+  --spacings=475,500,525 \
+  --traffic-profiles=right-edge-burst --burst-rate-multipliers=1.5 \
+  --sim-time=12.0s --shift-start=3.0s --shift-stop=10.0s \
+  --forecast-lead-times=1.0s --min-forecast-lead-times=1.0s \
+  --forecast-burst-rate-multipliers=1.5 \
+  --forecast-burst-rate-errors=-0.25 \
+  --forecast-burst-rate-uncertainties=0.25 \
+  --forecast-correction-delays=off \
+  --use-ideal-rrc-values=true --skip-build --keep-going --jobs=8 \
+  --output-dir="$ROOT/right-fixed025-adaptive"
+```
+
+Both `162`-row sweeps completed without failures.  Combined with the existing
+all-on reference and gated adaptive aggregate:
+
+| scenario | control | policy | cells | evaluable cells | robust cells | feasible rows | safe rows | safe saving | induced violations |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| right-edge 1.5x | reference | all-on | 27 | 27 | 17 | 115/162 | 115 | 0.000% | 0 |
+| right-edge 1.5x | no forecast | adaptive-twin | 27 | 24 | 12 | 115 | 93 | 16.577% | 22 |
+| right-edge 1.5x | `0.25` margin | adaptive-twin | 27 | 24 | 21 | 115 | 110 | 19.344% | 5 |
+| right-edge 1.5x | gated `0.25` margin | adaptive-twin | 27 | 24 | 24 | 115 | 115 | 19.510% | 0 |
+
+The no-forecast adaptive baseline misses `22` feasible rows, mainly in the
+`16 UE`, `1.0/1.2 Mb/s`, `20 UE`, `0.8 Mb/s`, and sparse feasible `20 UE`,
+`1.0 Mb/s` transition bands.  The ungated forecast margin removes most of those
+misses but introduces five misses in the moderate `12 UE`, `1.2 Mb/s` band:
+`475 m` and `500 m` each miss two feasible rows, and `525 m` misses one.  The
+actionability gate suppresses the early forecast path for that moderate band
+and recovers all five rows while preserving the larger-row forecast protection.
+
 ## Forecast-Error Stress Check
 
 A follow-up stress check varied the forecast burst-rate error while keeping the

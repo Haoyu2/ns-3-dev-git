@@ -33,7 +33,9 @@ right-edge transition surface with a 25\% underpredicted forecast, a selective
 forecast margin reaches 39/40 safety with 13.754\% mean safe energy saving,
 matching a stronger global margin that saves only 9.927\%.  On a
 three-spacing UE-count/load grid, the actionability-gated adaptive controller
-is safe on all 115/115 feasible rows with 19.510\% mean safe energy saving.
+is safe on all 115/115 feasible rows with 19.510\% mean safe energy saving,
+where no-forecast adaptive control is safe on 93/115 and an ungated 0.25
+forecast margin is safe on 110/115.
 These results show that separating reactive, forecasted, and actionable
 uncertainty can preserve energy savings while reducing transition risk.
 \end{abstract}
@@ -259,6 +261,8 @@ Grid & Control & Safe & Saving \\
 500 m & 0.25 margin, adaptive & 37/39 & 19.258\% \\
 500 m & gated 0.25, twin & 37/39 & 19.258\% \\
 500 m & gated 0.25, adaptive & 39/39 & 19.626\% \\
+3 spacings & no forecast, adaptive & 93/115 & 16.577\% \\
+3 spacings & 0.25 margin, adaptive & 110/115 & 19.344\% \\
 3 spacings & gated 0.25, adaptive & 115/115 & 19.510\% \\
 \bottomrule
 \end{tabular}
@@ -266,7 +270,11 @@ Grid & Control & Safe & Saving \\
 
 Across the three-spacing load grid, the all-on reference is feasible on
 115/162 rows.  The actionability-gated adaptive controller is safe on every one
-of those feasible rows with zero induced violations.  The same gate does not
+of those feasible rows with zero induced violations.  The matched baselines
+show why both parts of the design are needed: adaptive wakeup without forecast
+protection is safe on 93/115 feasible rows, while an ungated 0.25 forecast
+margin is safe on 110/115 and misses the moderate 12-UE, 1.2 Mb/s rows that
+the actionability gate leaves on the reactive path.  The same gate does not
 repair static twin on the 500 m grid, which indicates that actionability and
 latent-demand wakeup are complementary rather than interchangeable.
 
@@ -321,8 +329,8 @@ the network can otherwise serve.
 The current prototype remains a controlled LTE study.  It uses a three-cell
 line topology, analytical power constants, and ideal RRC signaling for the
 paper-facing sweeps.  Stronger baselines should include calibrated static
-margins, policies with forecast lead but no actionability gate, and stress
-tests over larger forecast errors and mobility.
+margins, broader controller families, and stress tests over larger forecast
+errors and mobility.
 
 \section{Related Work}
 

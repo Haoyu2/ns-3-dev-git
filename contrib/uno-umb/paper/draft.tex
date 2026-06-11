@@ -4,6 +4,9 @@
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \usepackage{microtype}
+\usepackage{float}
+\usepackage{pgfplots}
+\pgfplotsset{compat=1.18}
 
 \title{UNO-UMB: Uncertainty-Aware Cell Sleep Control for QoS-Safe RAN Energy Savings}
 \author{Haoyu}
@@ -102,12 +105,29 @@ avoid induced violations.
 
 \section{Results}
 
+Figure~\ref{fig:evaluation-tradeoff} plots the two main mechanisms as
+feasible-row safety versus safe energy saving.  The center-burst panel shows
+the adaptive wakeup trading energy saving for complete safety on the feasible
+surface.  The right-edge panel shows a different pattern: the forecast margin
+moves the controller to the upper-right safety frontier, while the stronger
+global margin is both less safe and less energy efficient on the expanded
+surface.
+
+\begin{figure}[H]
+\centering
+\input{figures/evaluation-tradeoff.tex}
+\caption{Safety-energy tradeoff on the expanded ideal-RRC evaluation.  Points
+report the safe feasible-row rate and mean safe energy saving; labels give safe
+rows over feasible controller rows.}
+\label{fig:evaluation-tradeoff}
+\end{figure}
+
 Table~\ref{tab:center} summarizes the expanded center-burst rows at 2x offered
 load.  Static twin control is safe on 14/18 feasible rows.  Adaptive twin
 control removes the induced violations by waking cells earlier, at the cost of
 lower energy saving.
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
 \caption{Expanded center-burst 2x feasible-row results.}
 \label{tab:center}
@@ -127,7 +147,7 @@ rows unsafe.  The base 0.25 margin and selective overlap margin both recover
 all 16 feasible rows.  A global 0.35 margin is more conservative, but loses one
 feasible row and substantially lowers safe energy saving.
 
-\begin{table}[t]
+\begin{table}[H]
 \centering
 \caption{Expanded right-edge 1.5x transition surface.}
 \label{tab:right-edge}

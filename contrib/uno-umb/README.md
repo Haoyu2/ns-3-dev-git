@@ -210,6 +210,9 @@ Paper draft:
 
 - `paper/draft.tex`: initial manuscript scaffold built around the current two
   mechanism contributions.
+- `paper/data/main-evaluation-summary.csv` and
+  `utils/uno-umb-paper-figures.py`: compact result data and reproducible
+  tradeoff-figure generation for the draft.
 
 Near-term extension list:
 

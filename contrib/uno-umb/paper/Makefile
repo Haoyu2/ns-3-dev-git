@@ -1,10 +1,19 @@
 LATEX ?= pdflatex
 
-.PHONY: all clean
+FIGURE_DATA := data/main-evaluation-summary.csv
+FIGURE_TEX := figures/evaluation-tradeoff.tex
+FIGURE_SCRIPT := ../utils/uno-umb-paper-figures.py
+
+.PHONY: all clean figures
 
 all: draft.pdf
 
-draft.pdf: draft.tex
+figures: $(FIGURE_TEX)
+
+$(FIGURE_TEX): $(FIGURE_DATA) $(FIGURE_SCRIPT)
+	python3 $(FIGURE_SCRIPT) $(FIGURE_DATA) --output-tex $(FIGURE_TEX)
+
+draft.pdf: draft.tex $(FIGURE_TEX)
 	$(LATEX) -interaction=nonstopmode -halt-on-error draft.tex
 	$(LATEX) -interaction=nonstopmode -halt-on-error draft.tex
 

@@ -73,6 +73,17 @@ Pilot sweep:
 python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py
 ```
 
+Use `--jobs=N` to split larger sweeps into concurrent shards after the target
+has been built.  With `--skip-build`, each run uses `./ns3 run --no-build` so
+workers do not repeatedly touch the build tree:
+
+```bash
+python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
+  --skip-build \
+  --keep-going \
+  --jobs=8
+```
+
 Adaptive calibration sweep:
 
 ```bash

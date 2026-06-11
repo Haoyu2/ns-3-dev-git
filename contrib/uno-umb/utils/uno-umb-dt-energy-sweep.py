@@ -7,6 +7,7 @@ import hashlib
 import itertools
 import json
 import subprocess
+import sys
 import time
 from datetime import datetime, timezone
 from pathlib import Path
@@ -247,6 +248,117 @@ def write_aggregate_csv(aggregate_rows, aggregate_csv):
         writer.writerows(aggregate_rows)
 
 
+def child_sweep_command(args, script, shard_dir, shard_index):
+    command = [sys.executable, str(script)]
+    skip_names = {
+        "jobs",
+        "output_dir",
+        "shard_count",
+        "shard_index",
+        "skip_build",
+    }
+    for name, value in vars(args).items():
+        if name in skip_names:
+            continue
+        option = "--" + name.replace("_", "-")
+        if isinstance(value, bool):
+            if value:
+                command.append(option)
+        else:
+            command.append(f"{option}={value}")
+    command.extend(
+        [
+            "--skip-build",
+            "--jobs=1",
+            f"--output-dir={shard_dir}",
+            f"--shard-count={args.jobs}",
+            f"--shard-index={shard_index}",
+        ]
+    )
+    return command
+
+
+def run_parallel_shards(args, repo, out_dir):
+    script = Path(__file__).resolve()
+    started_utc = datetime.now(timezone.utc).isoformat()
+    processes = []
+    log_handles = []
+    for shard_index in range(args.jobs):
+        shard_dir = out_dir / f"shard-{shard_index:02d}"
+        shard_dir.mkdir(parents=True, exist_ok=True)
+        log_path = out_dir / f"shard-{shard_index:02d}.log"
+        command = child_sweep_command(args, script, shard_dir, shard_index)
+        log_handle = log_path.open("w")
+        process = subprocess.Popen(
+            command,
+            cwd=repo,
+            stdout=log_handle,
+            stderr=subprocess.STDOUT,
+            text=True,
+        )
+        log_handles.append(log_handle)
+        processes.append((shard_index, shard_dir, log_path, command, process))
+        print(f"Started shard {shard_index}/{args.jobs - 1}: {log_path}", flush=True)
+
+    failed = []
+    for shard_index, shard_dir, log_path, command, process in processes:
+        return_code = process.wait()
+        log_handles[shard_index].close()
+        print(
+            f"Shard {shard_index}/{args.jobs - 1} exited with {return_code}",
+            flush=True,
+        )
+        if return_code != 0:
+            failed.append((shard_index, return_code, command, log_path))
+
+    aggregate_rows = []
+    manifest = {
+        "started_utc": started_utc,
+        "completed_utc": datetime.now(timezone.utc).isoformat(),
+        "arguments": vars(args),
+        "parallel_jobs": args.jobs,
+        "runs": [],
+        "shards": [],
+    }
+    for shard_index, shard_dir, log_path, command, process in processes:
+        shard_manifest_path = shard_dir / "manifest.json"
+        shard_aggregate_path = shard_dir / "aggregate.csv"
+        shard_summary = {
+            "shard_index": shard_index,
+            "return_code": process.returncode,
+            "command": command,
+            "log": str(log_path),
+            "output_dir": str(shard_dir),
+        }
+        if shard_manifest_path.exists():
+            with shard_manifest_path.open() as handle:
+                shard_manifest = json.load(handle)
+            shard_summary["manifest"] = str(shard_manifest_path)
+            manifest["runs"].extend(shard_manifest.get("runs", []))
+        if shard_aggregate_path.exists():
+            with shard_aggregate_path.open(newline="") as handle:
+                aggregate_rows.extend(csv.DictReader(handle))
+            shard_summary["aggregate_csv"] = str(shard_aggregate_path)
+        manifest["shards"].append(shard_summary)
+
+    aggregate_rows.sort(key=lambda row: row.get("run_id", ""))
+    write_aggregate_csv(aggregate_rows, out_dir / "aggregate.csv")
+    manifest["aggregate_csv"] = str(out_dir / "aggregate.csv")
+    with (out_dir / "manifest.json").open("w") as handle:
+        json.dump(manifest, handle, indent=2)
+        handle.write("\n")
+
+    print(f"Wrote {out_dir / 'aggregate.csv'}")
+    print(f"Wrote {out_dir / 'manifest.json'}")
+    if failed:
+        for shard_index, return_code, _command, log_path in failed:
+            print(
+                f"Shard {shard_index} failed with return code {return_code}; see {log_path}",
+                flush=True,
+            )
+        raise subprocess.CalledProcessError(failed[0][1], failed[0][2])
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--policies", default="all-on,threshold,aggressive,twin,adaptive-twin")
@@ -278,13 +390,30 @@ def main():
     parser.add_argument("--shift-stop", default="10.0s")
     parser.add_argument("--sim-time", default="12.0s")
     parser.add_argument("--output-dir", default="")
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=1,
+        help="Run sweep shards concurrently after the build step",
+    )
     parser.add_argument("--skip-build", action="store_true")
     parser.add_argument(
         "--keep-going",
         action="store_true",
         help="Record failed runs and continue the sweep",
     )
+    parser.add_argument("--shard-count", type=int, default=1, help=argparse.SUPPRESS)
+    parser.add_argument("--shard-index", type=int, default=0, help=argparse.SUPPRESS)
     args = parser.parse_args()
+
+    if args.jobs < 1:
+        raise ValueError("--jobs must be at least 1")
+    if args.shard_count < 1:
+        raise ValueError("--shard-count must be at least 1")
+    if args.shard_index < 0 or args.shard_index >= args.shard_count:
+        raise ValueError("--shard-index must be in [0, --shard-count)")
+    if args.jobs > 1 and args.shard_count > 1:
+        raise ValueError("--jobs and --shard-count cannot both be greater than 1")
 
     repo = Path(__file__).resolve().parents[3]
     out_dir = Path(args.output_dir) if args.output_dir else repo / "results" / (
@@ -332,6 +461,10 @@ def main():
         if return_code != 0:
             raise subprocess.CalledProcessError(return_code, ["./ns3", "build", "uno-umb-dt-energy"])
 
+    if args.jobs > 1:
+        run_parallel_shards(args, repo, out_dir)
+        return
+
     aggregate_rows = []
     manifest = {
         "started_utc": datetime.now(timezone.utc).isoformat(),
@@ -368,6 +501,7 @@ def main():
         )
     )
     seen_scenarios = set()
+    scenario_ordinal = 0
     for index, (
         policy,
         seed,
@@ -428,6 +562,12 @@ def main():
         if scenario_key in seen_scenarios:
             continue
         seen_scenarios.add(scenario_key)
+        scenario_ordinal += 1
+        if (
+            args.shard_count > 1
+            and (scenario_ordinal - 1) % args.shard_count != args.shard_index
+        ):
+            continue
 
         scenario_hash = hashlib.sha1(
             "|".join(str(item) for item in scenario_key).encode("utf-8")
@@ -481,6 +621,9 @@ def main():
             f"--summaryCsv={summary_csv} "
             f"--eventCsv={event_csv}"
         )
+        run_command_args = ["./ns3", "run", program]
+        if args.skip_build:
+            run_command_args = ["./ns3", "run", "--no-build", program]
         manifest["runs"].append(
             {
                 "run_id": run_id,
@@ -511,13 +654,13 @@ def main():
                 "forecast_correction_delay": forecast_correction_delay,
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,
-                "command": ["./ns3", "run", program],
+                "command": run_command_args,
                 "summary_csv": str(summary_csv),
                 "event_csv": str(event_csv),
                 "run_log": str(run_log),
             }
         )
-        return_code = run_command(["./ns3", "run", program], repo, run_log)
+        return_code = run_command(run_command_args, repo, run_log)
         if return_code != 0:
             manifest["runs"][-1]["run_status"] = "failed"
             manifest["runs"][-1]["return_code"] = return_code

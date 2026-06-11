@@ -32,5 +32,6 @@ Current backbone:
   `contrib/uno-umb/experiments/forecast-actionability-gate.md`.
 
 Before external review, decide whether the actionability-gated load-grid result
-should move into a main results table, run a spacing cross-check if time allows,
-and replace any placeholder venue-specific formatting with the target template.
+should move into a main figure, run a forecast-error stress check if time
+allows, and replace any placeholder venue-specific formatting with the target
+template.

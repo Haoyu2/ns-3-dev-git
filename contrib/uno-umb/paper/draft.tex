@@ -31,9 +31,10 @@ with a 25\% underpredicted forecast, a calibrated selective margin reaches
 39/40 safety with 13.754\% mean safe energy saving, matching a stronger global
 margin that saves only 9.927\%.  On a 500 m UE-count/load grid, the adaptive
 actionability-gated margin reaches 39/39 safe feasible rows with 19.626\% mean
-safe energy saving, while the ungated 0.25 margin is safe on 37/39.  These
-results suggest that conditional uncertainty control can preserve energy
-savings while reducing transition risk.
+safe energy saving, while the ungated 0.25 margin is safe on 37/39.  A
+follow-up three-spacing load-grid check keeps the gated adaptive controller safe
+on all 115/115 feasible rows.  These results suggest that conditional
+uncertainty control can preserve energy savings while reducing transition risk.
 \end{abstract}
 
 \section{Introduction}
@@ -222,6 +223,12 @@ Gated 0.25 margin & adaptive & 39/39 & 19.626\% \\
 \end{tabular}
 \end{table}
 
+The same gated adaptive configuration was then checked across 475 m, 500 m,
+and 525 m spacing for the full UE-count/load grid.  The all-on reference is
+feasible on 115/162 rows.  The gated adaptive controller is safe on all 115
+feasible rows, with 19.510\% mean safe energy saving and zero induced
+violations.
+
 The prototype should also be compared against stronger baselines, including
 controllers with calibrated static margins and controllers that use forecast
 lead time without spatially selective inflation.
@@ -263,8 +270,8 @@ forecasted uncertainty.  Latent-demand wakeup protects feasible unannounced
 center bursts, while selective overlap-gated and actionability-gated forecast
 margins protect hard right-edge transitions without imposing the full global
 conservative energy cost.  The current ns-3 prototype and experiment notes are
-ready for a first manuscript review and a spacing cross-check of the load-aware
-gate.
+ready for a first manuscript review and the next forecast-error stress check of
+the load-aware gate.
 
 \bibliographystyle{abbrv}
 \bibliography{references}

@@ -131,3 +131,56 @@ remains unsafe on `12 UE`, `1.2 Mb/s`.  The mechanism is therefore best framed
 as a combination: adaptive latent-demand wakeup handles small and moderate
 unannounced shifts, while an actionability threshold reserves forecast-margin
 protection for larger predicted shifts.
+
+## Spacing-Load Cross-Check
+
+A follow-up campaign checked the same adaptive gated controller across the full
+right-edge load grid at `475 m`, `500 m`, and `525 m` spacing.  This separates
+the actionability result from a single-spacing artifact.
+
+Output root:
+
+```bash
+ROOT=~/haoyu/ns-3-uno-umb-results/gated-load-spacing-3seed2run-ideal-20260611
+```
+
+The reference all-on grid ran on `frcc`; the adaptive gated grid ran on
+`frcc2`.
+
+```bash
+python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
+  --policies=adaptive-twin \
+  --seeds=1,2,3 --runs=1,2 \
+  --ue-counts=12,16,20 --ue-rates=0.8,1.0,1.2 \
+  --spacings=475,500,525 \
+  --traffic-profiles=right-edge-burst --burst-rate-multipliers=1.5 \
+  --sim-time=12.0s --shift-start=3.0s --shift-stop=10.0s \
+  --forecast-lead-times=1.0s --min-forecast-lead-times=1.0s \
+  --forecast-min-burst-extra-loads=3.25 \
+  --forecast-burst-rate-multipliers=1.5 \
+  --forecast-burst-rate-errors=-0.25 \
+  --forecast-burst-rate-uncertainties=0.25 \
+  --forecast-correction-delays=off \
+  --use-ideal-rrc-values=true --skip-build --keep-going --jobs=8 \
+  --output-dir="$ROOT/right-gated-extra325-adaptive"
+```
+
+The all-on reference uses the same grid with `--policies=all-on` and no
+forecast arguments.
+
+The combined summary was generated in:
+
+```bash
+/tmp/uno-umb-gated-load-spacing-3seed2run-ideal-20260611/summary
+```
+
+| scenario | control | policy | cells | evaluable cells | robust cells | feasible rows | safe rows | safe saving | induced violations |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| right-edge 1.5x | reference | all-on | 27 | 27 | 17 | 115/162 | 115 | 0.000% | 0 |
+| right-edge 1.5x | gated `0.25` margin | adaptive-twin | 27 | 24 | 24 | 115 | 115 | 19.510% | 0 |
+
+All `324` planned runs completed without failures.  The adaptive gated
+controller is safe on every all-on-feasible row across the cross-product of
+three spacings, three UE counts, and three per-UE loads.  The all-on reference
+is itself infeasible on the heaviest cells, so those rows remain outside the
+controller safety denominator.

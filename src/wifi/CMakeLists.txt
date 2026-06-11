@@ -149,6 +149,7 @@ set(source_files
     model/table-based-error-rate-model.cc
     model/threshold-preamble-detection-model.cc
     model/tim.cc
+    model/twt-power-save-manager.cc
     model/txop.cc
     model/vht/vht-capabilities.cc
     model/vht/vht-configuration.cc
@@ -328,6 +329,7 @@ set(header_files
     model/table-based-error-rate-model.h
     model/threshold-preamble-detection-model.h
     model/tim.h
+    model/twt-power-save-manager.h
     model/txop.h
     model/vht/vht-capabilities.h
     model/vht/vht-configuration.h

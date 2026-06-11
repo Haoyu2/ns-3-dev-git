@@ -1,14 +1,16 @@
 \documentclass[10pt,twocolumn]{article}
 
-\usepackage[margin=0.72in]{geometry}
+\usepackage[margin=0.715in]{geometry}
 \usepackage[T1]{fontenc}
 \usepackage{lmodern}
 \usepackage{microtype}
+\usepackage{amsmath}
+\usepackage{booktabs}
 \usepackage{float}
 \usepackage{pgfplots}
 \pgfplotsset{compat=1.18}
 
-\title{UNO-UMB: Uncertainty-Aware Cell Sleep Control for QoS-Safe RAN Energy Savings}
+\title{UNO-UMB: Conditional Uncertainty Control for QoS-Safe RAN Cell Sleep}
 \author{Haoyu}
 \date{}
 
@@ -18,114 +20,164 @@
 \maketitle
 
 \begin{abstract}
-Cell sleep can reduce radio access network energy use, but load shifts can turn
-apparently safe sleep decisions into quality-of-service violations.  This paper
-presents UNO-UMB, an ns-3 prototype for uncertainty-aware cell sleep control.
-UNO-UMB combines a lightweight digital-twin risk gate, a latent-demand wakeup
-rule for unannounced shifts, forecast-risk margins, and a load-aware
-actionability gate that suppresses small underpredicted forecasts.  In an
-expanded LTE evaluation over five seeds, three runs, and three inter-site
-spacings, the adaptive wakeup recovers all 44/44 feasible center-burst rows
-where static risk gating is safe on 40/44.  On a right-edge transition surface
-with a 25\% underpredicted forecast, a calibrated selective margin reaches
-39/40 safety with 13.754\% mean safe energy saving, matching a stronger global
-margin that saves only 9.927\%.  On a 500 m UE-count/load grid, the adaptive
-actionability-gated margin reaches 39/39 safe feasible rows with 19.626\% mean
-safe energy saving, while the ungated 0.25 margin is safe on 37/39.  A
-follow-up three-spacing load-grid check keeps the gated adaptive controller safe
-on all 115/115 feasible rows.  These results suggest that conditional
-uncertainty control can preserve energy savings while reducing transition risk.
+Cell sleep can reduce radio access network energy use, but demand shifts can
+turn apparently safe sleep decisions into quality-of-service violations.
+This paper presents UNO-UMB, an ns-3 prototype for QoS-safe RAN cell sleep
+under shifted and mispredicted traffic.  UNO-UMB combines a lightweight
+digital-twin risk gate, a latent-demand wakeup rule for unannounced shifts,
+forecast-risk margins, and a load-aware actionability gate that suppresses
+small underpredicted forecasts.  In a five-seed, three-run, three-spacing LTE
+evaluation, adaptive latent-demand wakeup is safe on all 44/44 feasible
+center-burst rows where static twin control is safe on 40/44.  On a
+right-edge transition surface with a 25\% underpredicted forecast, a selective
+forecast margin reaches 39/40 safety with 13.754\% mean safe energy saving,
+matching a stronger global margin that saves only 9.927\%.  On a
+three-spacing UE-count/load grid, the actionability-gated adaptive controller
+is safe on all 115/115 feasible rows with 19.510\% mean safe energy saving.
+These results show that separating reactive, forecasted, and actionable
+uncertainty can preserve energy savings while reducing transition risk.
 \end{abstract}
 
 \section{Introduction}
 
-Radio access networks are increasingly energy constrained: base stations account
-for a large share of cellular network energy demand, and deployments are often
-dimensioned for busy periods even though traffic varies sharply over time
-\cite{auer2011energy,hasan2011green}.  Cell sleep is a direct way to reduce
-active energy, yet a sleep decision changes the load and radio geometry seen by
-neighboring cells.  The central difficulty is therefore not only to find idle
-cells, but to decide which apparently idle cells can sleep without creating a
-quality-of-service violation after traffic shifts.
+Base stations account for a large share of cellular network energy demand, and
+radio access networks are typically dimensioned for peaks even though traffic
+varies sharply over time \cite{auer2011energy,hasan2011green}.  Cell sleep is
+a direct energy-saving mechanism: turn off lightly loaded cells and carry their
+users on neighboring cells.  The difficulty is safety.  A sleep decision changes
+both load and radio geometry, so a cell that appears idle before a traffic shift
+can become necessary after the shift.
 
-UNO-UMB studies this problem in ns-3.  The current prototype focuses on a
-simple but paper-relevant question: can a lightweight uncertainty-aware
-controller recover energy savings while avoiding controller-induced failures in
-workloads that remain feasible when all cells stay active?
+UNO-UMB studies this safety problem in ns-3.  The paper asks whether a
+lightweight controller can recover cell-sleep energy savings while avoiding
+controller-induced failures on workloads that remain feasible when all cells
+stay active.  This framing matters because not every offered-load row is
+controllable: some high-load rows violate the QoS target even without cell
+sleep.  UNO-UMB therefore reports safety only against matched all-on feasible
+references.
 
 The contributions are:
-
 \begin{itemize}
-\item A digital-twin cell sleep controller that evaluates candidate sleep
-decisions against per-UE offered load and predicted active-cell utilization.
+\item A digital-twin cell-sleep controller that evaluates candidate sleep
+placements with per-UE offered load, active-cell utilization, and offload
+geometry.
 \item A latent-demand wakeup mechanism that reacts to unannounced load shifts
 by reactivating sleeping preferred cells when doing so would relieve active
 cell stress.
-\item A forecast-risk margin with selective overlap inflation, which applies a
-stronger bound only when a tight utilization decision also uses close offload
-geometry.
-\item A forecast actionability gate that reserves early forecast updates for
-larger shifted-load events and keeps smaller shifts on the reactive adaptive
-path.
+\item Two forecast controls for anticipated shifts: selective forecast-risk
+inflation for tight close-offload decisions, and a forecast actionability gate
+that reserves early forecast updates for larger shifted-load events.
 \item A feasible-row evaluation method that separates controller-induced
-violations from offered-load overload by comparing every controller row against
-the matching all-on reference row.
+violations from offered-load overload by comparing each controller row against
+the matching all-on reference.
 \end{itemize}
 
-\section{Controller Design}
+\section{Controller}
 
-UNO-UMB operates as a periodic cell sleep controller with event-triggered
-reevaluation when demand changes.  For each candidate cell, the controller
-estimates whether sleeping the cell would overload the remaining active cells.
-The baseline twin policy keeps a cell active when the estimated risk exceeds a
-configured guard.
+UNO-UMB runs as a periodic controller with event-triggered reevaluation when
+demand changes.  Let $C$ be the controller-side cell capacity and
+$\hat L_j(a)$ be the predicted load on active cell $j$ after candidate sleep
+action $a$.  The twin risk estimate is
+\begin{equation}
+  \hat \rho_{\max}(a)=\max_j \frac{\hat L_j(a)}{C}.
+\end{equation}
+The controller accepts a sleep action only when the utilization estimate plus
+its uncertainty guard is within the configured limit:
+\begin{equation}
+  \hat \rho_{\max}(a) + u(a) \leq \rho_{\max}^{\mathrm{limit}}.
+\end{equation}
+The baseline \emph{twin} policy uses this rule to avoid sleeping cells that
+would overload the remaining active set.
 
-The adaptive controller adds a latent-demand wakeup gate.  When a sleeping cell
-is the preferred serving cell for enough offered demand, and waking it would
-reduce peak active-cell utilization by a configured relief threshold, the
-controller reactivates that cell.  This mechanism targets unannounced load
-shifts where a previously safe sleep decision becomes unsafe before the next
-steady-state placement.
+\subsection{Latent-Demand Wakeup}
 
-For anticipated traffic shifts, UNO-UMB supports a lead-time forecast gate.  A
-forecast can carry both a magnitude error and an uncertainty margin.  A
-load-aware actionability threshold first checks the forecasted shifted extra
-load.  Below the threshold, the controller suppresses the early forecast and
-uses the reactive demand update at the shift time; above it, the controller
-applies the configured forecasted rate and uncertainty margin.  The selective
-overlap variant uses a base uncertainty margin for ordinary forecast decisions,
-then inflates the margin only when the candidate decision has small utilization
-slack and nearby offload geometry.  This keeps the base margin on placements
-where it is already sufficient and avoids charging a stronger global margin to
-every forecasted decision.
+The adaptive controller adds a reactive wakeup rule.  When a sleeping cell is
+the preferred cell for enough latent offered demand, UNO-UMB estimates the peak
+active-cell utilization before and after restoring that cell.  It wakes the
+cell when
+\begin{equation}
+  L_{\mathrm{latent}} \geq L_{\min}
+  \quad\text{and}\quad
+  \rho_{\max}^{\mathrm{active}}-\rho_{\max}^{\mathrm{restored}}\geq \Delta_\rho .
+\end{equation}
+This targets unannounced shifts where a placement that was safe before the
+shift becomes unsafe before the next steady-state decision.
 
-\section{Evaluation Setup}
+\subsection{Forecasted Shifts}
 
-The prototype is implemented as an ns-3 contribution module and evaluated using
-an LTE cell sleep example, following the use of ns-3 LTE models as an open
-simulation substrate for radio-resource and self-optimization studies
-\cite{baldo2011lte}.  Unless otherwise noted, the main rows use 16 UEs, a
-1.0 Mb/s per-UE base offered load, a 12 s simulation, and a burst window from
-3 s to 10 s over five seeds, three runs, and three inter-site spacings.  The
-expanded controller table uses ideal LTE RRC signaling to avoid treating
-stressed over-the-air control-plane scheduler assertions as cell-sleep
-controller outcomes.
+For anticipated shifts, a forecast may specify lead time, a burst magnitude,
+and a magnitude error.  If $S$ is the set of shifted UEs, $r$ is the per-UE
+base rate, and $b_f$ is the forecast burst multiplier, UNO-UMB computes the
+forecasted shifted extra load
+\begin{equation}
+  L_f = |S|r\max(b_f-1,0).
+\end{equation}
+The forecast is actionable only when the lead time is long enough and
+$L_f \geq \tau_f$, where $\tau_f$ is the actionability threshold.  If the
+forecast is not actionable, the controller suppresses both the early forecast
+lead and the underpredicted forecasted rate update.  If it is actionable, the
+controller applies the forecasted burst multiplier
+\begin{equation}
+  b_c = 1 + \max((b_f-1)(1+\epsilon),0),
+\end{equation}
+where $\epsilon$ is the relative magnitude error.
 
-The evaluation reports three classes of outcome.  First, the all-on reference
-identifies whether the offered-load scenario is feasible without cell sleep.
-Second, controller rows are counted only when the matching all-on row is
-feasible.  Third, safe energy saving is measured only for controller rows that
-avoid induced violations.
+The forecast uncertainty margin adds a utilization guard during the forecast
+window:
+\begin{equation}
+  u_f=\frac{|S|r\max(b_f-1,0)q}{C},
+\end{equation}
+where $q$ is the forecast uncertainty bound.  The selective-overlap variant
+uses a base $q$ for ordinary forecasted decisions and raises $q$ only when a
+candidate decision has small utilization slack and close offload geometry.
+
+\section{Evaluation Method}
+
+The prototype is implemented as an ns-3 contribution module and evaluated with
+the ns-3 LTE model \cite{baldo2011lte}.  Table~\ref{tab:setup} summarizes the
+paper-facing settings.  Each row is repeated over the stated seeds and run
+numbers.  The all-on policy provides a matched feasibility reference for every
+controller row.
+
+\begin{table}[H]
+\centering
+\caption{Evaluation configuration.}
+\label{tab:setup}
+\small
+\begin{tabular}{@{}p{0.33\columnwidth}p{0.59\columnwidth}@{}}
+\toprule
+Parameter & Value \\
+\midrule
+Topology & 3 eNB line, downlink UDP traffic \\
+UE counts & 12, 16, 20 where varied \\
+Base offered load & 0.8, 1.0, 1.2 Mb/s per UE where varied \\
+Inter-site spacing & 475, 500, 525 m where varied \\
+Simulation window & 12 s, burst from 3 s to 10 s \\
+Cell capacity model & 18 Mb/s per active cell \\
+Utilization limit & 0.78 \\
+Power model & 180 W active, 25 W sleeping \\
+QoS target & Goodput ratio $\geq 0.85$, delay $\leq 80$ ms \\
+RRC mode & Ideal RRC for paper-facing sweeps \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+A row is \emph{all-on feasible} when the matching all-on run does not violate
+the QoS target.  A controller row is \emph{safe} when the all-on row is feasible
+and the controller row has no QoS violation and no unsafe sleep action.  Safe
+energy saving is reported only over safe controller rows:
+\begin{equation}
+  E_{\mathrm{save}} = 100\left(1-\frac{E_{\mathrm{controller}}}{E_{\mathrm{all-on}}}\right).
+\end{equation}
+This avoids giving credit for saving energy by dropping traffic in overloaded
+or controller-induced-failure cases.
 
 \section{Results}
 
-Figure~\ref{fig:evaluation-tradeoff} plots the two main mechanisms as
-feasible-row safety versus safe energy saving.  The center-burst panel shows
-the adaptive wakeup trading energy saving for complete safety on the feasible
-surface.  The right-edge panel shows a different pattern: the forecast margin
-moves the controller toward the safety frontier, while the calibrated selective
-margin reaches the global-margin safety level at much higher safe energy
-saving.
+Figure~\ref{fig:evaluation-tradeoff} summarizes the main safety-energy tradeoff.
+The center-burst panel isolates the reactive latent-demand wakeup mechanism.
+The right-edge panel isolates forecast-risk handling under a 25\%
+underpredicted burst.
 
 \begin{figure}[H]
 \centering
@@ -136,102 +188,141 @@ rows over feasible controller rows.}
 \label{fig:evaluation-tradeoff}
 \end{figure}
 
-Table~\ref{tab:center} summarizes the expanded center-burst rows at 2x offered
-load.  The all-on reference is feasible on 44/45 offered-load rows.  Static
-twin control is safe on 40/44 feasible rows.  Adaptive twin
-control removes the induced violations by waking cells earlier, at the cost of
-lower energy saving.
+\subsection{Reactive Center-Burst Shifts}
+
+Table~\ref{tab:center} shows the expanded center-burst 2x result over five
+seeds, three runs, and three spacings.  The all-on reference is feasible on
+44/45 rows.  Static twin control is safe on 40/44 feasible rows; adaptive
+wakeup removes the remaining induced violations by reactivating latent preferred
+cells.  The cost is lower mean safe energy saving because adaptive control wakes
+cells earlier.
 
 \begin{table}[H]
 \centering
-\caption{Expanded center-burst 2x feasible-row results.}
+\caption{Center-burst 2x feasible-row results.}
 \label{tab:center}
-\begin{tabular}{llll}
-\hline
-Scenario & Policy & Safe rate & Saving \\
-\hline
-2.0x & twin & 40/44 & 21.745\% \\
-2.0x & adaptive & 44/44 & 7.176\% \\
-\hline
+\begin{tabular}{lccc}
+\toprule
+Policy & Feasible & Safe & Saving \\
+\midrule
+twin & 44 & 40 & 21.745\% \\
+adaptive-twin & 44 & 44 & 7.176\% \\
+\bottomrule
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:right-edge} summarizes the right-edge transition surface across
-475 m, 500 m, and 525 m spacing.  The no-forecast controllers leave feasible
-rows unsafe.  The base 0.25 margin reduces induced violations but leaves three
-feasible rows unsafe.  A global 0.35 margin recovers two of those rows but
-spends substantial energy.  The calibrated selective overlap margin matches the
-global-margin safety rate while preserving most of the base-margin saving.
+\subsection{Forecasted Right-Edge Transitions}
+
+Table~\ref{tab:right-edge} shows the corresponding right-edge transition
+surface.  Without a forecast margin, static twin is safe on only 33/40 feasible
+rows.  The base 0.25 margin improves safety to 37/40.  A global 0.35 margin
+recovers two more rows but lowers mean safe energy saving to 9.927\%.  The
+selective margin reaches the same 39/40 safety while preserving 13.754\% safe
+energy saving, showing the value of conditioning extra conservatism on tight
+close-offload decisions.
 
 \begin{table}[H]
 \centering
-\caption{Expanded right-edge 1.5x transition surface.}
+\caption{Right-edge 1.5x transition surface, 16 UEs.}
 \label{tab:right-edge}
-\begin{tabular}{llll}
-\hline
-Control & Policy & Safe rate & Saving \\
-\hline
+\begin{tabular}{lccc}
+\toprule
+Control & Policy & Safe & Saving \\
+\midrule
 No forecast & twin & 33/40 & 13.873\% \\
 No forecast & adaptive & 31/40 & 10.166\% \\
 0.25 margin & twin & 37/40 & 13.515\% \\
-0.25 margin & adaptive & 37/40 & 13.515\% \\
 0.35 margin & twin & 39/40 & 9.927\% \\
-0.35 margin & adaptive & 39/40 & 9.927\% \\
 Selective margin & twin & 39/40 & 13.754\% \\
-Selective margin & adaptive & 39/40 & 13.754\% \\
-\hline
+\bottomrule
 \end{tabular}
 \end{table}
 
-The forecast-margin result is the strongest current evidence for the paper.  A
-base margin improves right-edge safety by four feasible rows relative to
-static no-forecast control.  The calibrated selective margin improves safety by
-two more rows, matching the global 0.35 margin at 39/40 safe feasible rows, but
-preserves 13.754\% mean safe energy saving instead of the global margin's
-9.927\%.  The residual unsafe row differs between the global and selective
-settings, showing that transition safety is not monotone in conservatism.
+\subsection{Load-Aware Forecast Actionability}
 
-\section{Discussion and Limitations}
-
-The present results are intentionally framed as feasible-row results, not as a
-claim that every offered-load scenario can be made safe by control.  Some rows
-are overloaded even when all cells remain active, and those rows are excluded
-from controller safety rates.
-
-An initial UE-count and load sweep at 500 m spacing reinforces this split.  At
-center 2x, adaptive wakeup remains safe on all 40/40 all-on-feasible rows over
-12, 16, and 20 UEs with per-UE rates from 0.8 to 1.2 Mb/s, while static twin
-control is safe on 35/40.  On the right-edge case, the fixed 0.25 forecast
-margin improves over no forecast but still leaves two feasible rows unsafe.  A
-3.25 Mb/s forecast actionability gate closes this gap for adaptive twin by
-routing smaller shifted-load rows through the reactive path and reserving
-forecast-margin protection for larger predicted shifts.
+The selective margin result still leaves a boundary row on the 16-UE transition
+surface.  The load-grid result in Table~\ref{tab:load-grid} tests a different
+idea: reserve forecast-margin control for shifted-load forecasts that are large
+enough to be actionable.  With threshold $\tau_f=3.25$ Mb/s, smaller rows use
+the reactive adaptive path, while larger rows receive forecast protection.
 
 \begin{table}[H]
 \centering
-\caption{Right-edge 1.5x UE-count/load grid at 500 m spacing.}
+\caption{Right-edge 1.5x UE-count/load grids.}
 \label{tab:load-grid}
-\begin{tabular}{llll}
-\hline
-Control & Policy & Safe rate & Saving \\
-\hline
-No forecast & adaptive & 31/39 & 16.437\% \\
-0.25 margin & adaptive & 37/39 & 19.258\% \\
-Gated 0.25 margin & twin & 37/39 & 19.258\% \\
-Gated 0.25 margin & adaptive & 39/39 & 19.626\% \\
-\hline
+\small
+\begin{tabular}{@{}p{0.20\columnwidth}p{0.38\columnwidth}cc@{}}
+\toprule
+Grid & Control & Safe & Saving \\
+\midrule
+500 m & no forecast, adaptive & 31/39 & 16.437\% \\
+500 m & 0.25 margin, adaptive & 37/39 & 19.258\% \\
+500 m & gated 0.25, twin & 37/39 & 19.258\% \\
+500 m & gated 0.25, adaptive & 39/39 & 19.626\% \\
+3 spacings & gated 0.25, adaptive & 115/115 & 19.510\% \\
+\bottomrule
 \end{tabular}
 \end{table}
 
-The same gated adaptive configuration was then checked across 475 m, 500 m,
-and 525 m spacing for the full UE-count/load grid.  The all-on reference is
-feasible on 115/162 rows.  The gated adaptive controller is safe on all 115
-feasible rows, with 19.510\% mean safe energy saving and zero induced
-violations.
+Across the three-spacing load grid, the all-on reference is feasible on
+115/162 rows.  The actionability-gated adaptive controller is safe on every one
+of those feasible rows with zero induced violations.  The same gate does not
+repair static twin on the 500 m grid, which indicates that actionability and
+latent-demand wakeup are complementary rather than interchangeable.
 
-The prototype should also be compared against stronger baselines, including
-controllers with calibrated static margins and controllers that use forecast
-lead time without spatially selective inflation.
+\subsection{Forecast-Error Stress Check}
+
+Table~\ref{tab:forecast-error} varies the forecast magnitude error on the same
+three-spacing load grid while keeping the actionability threshold and
+uncertainty margin fixed.  The calibrated 25\% underprediction case remains the
+strongest point in this grid.  A 0\% magnitude error misses one near-threshold
+16-UE, 1.0 Mb/s seed-run, while 50\% underprediction misses three rows in the
+same 16-UE, 1.0 Mb/s transition band.  Thus the current claim is a calibrated
+conditional-control result, not a guarantee for arbitrary forecast error.
+
+\begin{table}[H]
+\centering
+\caption{Forecast-error stress check on the three-spacing grid.}
+\label{tab:forecast-error}
+\small
+\begin{tabular}{lcccc}
+\toprule
+Error & Safe & Robust & Saving & Induced \\
+\midrule
+0\% & 114/115 & 23/24 & 16.702\% & 1 \\
+-25\% & 115/115 & 24/24 & 19.510\% & 0 \\
+-50\% & 112/115 & 21/24 & 21.485\% & 3 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Discussion}
+
+The strongest result is not that a single conservative margin solves all
+right-edge transitions.  Instead, the results show that different uncertainty
+sources need different controls.  Unannounced shifts require reactive wakeup.
+Forecasted hard transitions require forecast uncertainty margins.  Small
+underpredicted forecast events can be safer when treated as reactive events,
+which is exactly what the actionability gate enforces.
+
+The forecast-error stress check also shows non-monotonic behavior near the QoS
+threshold.  More accurate or more conservative forecast magnitudes do not
+automatically dominate the calibrated setting because early wakeups, handovers,
+and scheduler transients can interact with rows that are barely feasible in the
+all-on reference.  This motivates treating forecast magnitude, uncertainty
+margin, and actionability threshold as a coupled design space.
+
+The feasible-row denominator is important for interpretation.  Some high-load
+rows are infeasible even when all cells remain active; those rows are excluded
+from controller safety rates.  This makes the claims narrower but cleaner: the
+paper measures whether cell sleep creates avoidable failures on workloads that
+the network can otherwise serve.
+
+The current prototype remains a controlled LTE study.  It uses a three-cell
+line topology, analytical power constants, and ideal RRC signaling for the
+paper-facing sweeps.  Stronger baselines should include calibrated static
+margins, policies with forecast lead but no actionability gate, and stress
+tests over larger forecast errors and mobility.
 
 \section{Related Work}
 
@@ -258,20 +349,20 @@ the remaining active cells.
 The forecast margin in UNO-UMB is related to the broader robust optimization
 tradeoff between protection against uncertainty and the cost of conservative
 decisions \cite{bertsimas2004price}.  The paper's contribution is to make this
-tradeoff spatially conditional for cell sleep: the controller inflates the
-forecast bound only when tight utilization slack coincides with close offload
-geometry, and the evaluation counts safety only on rows that are feasible in
-the all-on reference.
+tradeoff conditional for cell sleep: uncertainty is inflated only for specific
+forecasted, geometric, or actionability regimes, and safety is counted only on
+rows that are feasible in the all-on reference.
 
 \section{Conclusion}
 
-UNO-UMB shows that cell sleep safety can benefit from separating reactive and
-forecasted uncertainty.  Latent-demand wakeup protects feasible unannounced
-center bursts, while selective overlap-gated and actionability-gated forecast
-margins protect hard right-edge transitions without imposing the full global
-conservative energy cost.  The current ns-3 prototype and experiment notes are
-ready for a first manuscript review and the next forecast-error stress check of
-the load-aware gate.
+UNO-UMB demonstrates conditional uncertainty control for QoS-safe RAN cell
+sleep.  Latent-demand wakeup protects feasible unannounced center bursts.
+Selective forecast margins protect hard right-edge transitions without the full
+energy cost of a global conservative margin.  The actionability gate combines
+these ideas across a broader UE-count, load, and spacing grid, reaching 115/115
+safe feasible right-edge rows with 19.510\% mean safe energy saving.  These
+results provide a concrete ns-3 foundation for evaluating conditional
+uncertainty control under forecast error, load variation, and mobility.
 
 \bibliographystyle{abbrv}
 \bibliography{references}

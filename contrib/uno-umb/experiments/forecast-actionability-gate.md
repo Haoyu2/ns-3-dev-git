@@ -184,3 +184,62 @@ controller is safe on every all-on-feasible row across the cross-product of
 three spacings, three UE counts, and three per-UE loads.  The all-on reference
 is itself infeasible on the heaviest cells, so those rows remain outside the
 controller safety denominator.
+
+## Forecast-Error Stress Check
+
+A follow-up stress check varied the forecast burst-rate error while keeping the
+same `3.25 Mb/s` actionability gate and `0.25` forecast uncertainty margin.  The
+goal was to identify whether the calibrated `-25%` result was stable nearby and
+where the current controller begins to lose feasible rows.
+
+Output root:
+
+```bash
+ROOT=~/haoyu/ns-3-uno-umb-results/gated-forecast-error-stress-3seed2run-ideal-20260611
+```
+
+`frcc` ran the severe-underprediction point:
+
+```bash
+python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
+  --policies=adaptive-twin \
+  --seeds=1,2,3 --runs=1,2 \
+  --ue-counts=12,16,20 --ue-rates=0.8,1.0,1.2 \
+  --spacings=475,500,525 \
+  --traffic-profiles=right-edge-burst --burst-rate-multipliers=1.5 \
+  --sim-time=12.0s --shift-start=3.0s --shift-stop=10.0s \
+  --forecast-lead-times=1.0s --min-forecast-lead-times=1.0s \
+  --forecast-min-burst-extra-loads=3.25 \
+  --forecast-burst-rate-multipliers=1.5 \
+  --forecast-burst-rate-errors=-0.50 \
+  --forecast-burst-rate-uncertainties=0.25 \
+  --forecast-correction-delays=off \
+  --use-ideal-rrc-values=true --skip-build --keep-going --jobs=8 \
+  --output-dir="$ROOT/right-gated-extra325-error-m50"
+```
+
+`frcc2` ran the same grid with `--forecast-burst-rate-errors=0.0` and
+`--output-dir="$ROOT/right-gated-extra325-error-0"`.
+
+Both `162`-row sweeps completed without failures.  Compared with the same
+`115` all-on-feasible rows used in the spacing-load cross-check:
+
+| forecast error | rows | safe rows | robust cells | safe saving | induced violations |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| `0%` | 162 | 114/115 | 23/24 | 16.702% | 1 |
+| `-25%` | 162 | 115/115 | 24/24 | 19.510% | 0 |
+| `-50%` | 162 | 112/115 | 21/24 | 21.485% | 3 |
+
+The `0%` error point has one near-threshold induced SLA miss at
+`16 UE`, `1.0 Mb/s`, `500 m`, seed `3`, run `2`.  The all-on row is barely
+feasible (`15.565/18.188 Mb/s` goodput/offered), and the controller row falls
+just below the goodput-ratio target (`15.389/18.188 Mb/s`).  The `-50%` error
+point misses three rows in the same `16 UE`, `1.0 Mb/s` transition band at
+`475 m`, `500 m`, and `525 m`.
+
+This stress check should be framed as a boundary result: the current paper claim
+is calibrated conditional control at the tested `-25%` forecast error, not a
+guarantee for arbitrary magnitude error.  It also shows that forecast magnitude,
+uncertainty margin, and actionability threshold need to be tuned together,
+because behavior near the feasible-row boundary is not monotonic in the
+forecast magnitude error alone.

@@ -86,9 +86,9 @@ PANELS = (
                 policy="twin",
                 color="teal!70!black",
                 marker="diamond*",
-                anchor="south west",
+                anchor="north west",
                 dx=0.35,
-                dy=1.0,
+                dy=-1.0,
             ),
             PointSpec(
                 label="Global 0.35|margin",

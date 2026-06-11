@@ -36,13 +36,14 @@ while bounding transition risk.
 
 \section{Introduction}
 
-Radio access networks are increasingly energy constrained: base stations are
-dimensioned for busy periods, but much of the deployment may be lightly loaded
-for long intervals.  Cell sleep is a direct way to reduce active energy, yet a
-sleep decision changes the load and radio geometry seen by neighboring cells.
-The central difficulty is therefore not only to find idle cells, but to decide
-which apparently idle cells can sleep without creating a quality-of-service
-violation after traffic shifts.
+Radio access networks are increasingly energy constrained: base stations account
+for a large share of cellular network energy demand, and deployments are often
+dimensioned for busy periods even though traffic varies sharply over time
+\cite{auer2011energy,hasan2011green}.  Cell sleep is a direct way to reduce
+active energy, yet a sleep decision changes the load and radio geometry seen by
+neighboring cells.  The central difficulty is therefore not only to find idle
+cells, but to decide which apparently idle cells can sleep without creating a
+quality-of-service violation after traffic shifts.
 
 UNO-UMB studies this problem in ns-3.  The current prototype focuses on a
 simple but paper-relevant question: can a lightweight uncertainty-aware
@@ -91,7 +92,9 @@ margin to every forecasted decision.
 \section{Evaluation Setup}
 
 The prototype is implemented as an ns-3 contribution module and evaluated using
-an LTE cell sleep example.  Unless otherwise noted, the main rows use 16 UEs, a
+an LTE cell sleep example, following the use of ns-3 LTE models as an open
+simulation substrate for radio-resource and self-optimization studies
+\cite{baldo2011lte}.  Unless otherwise noted, the main rows use 16 UEs, a
 1.0 Mb/s per-UE base offered load, a 12 s simulation, and a burst window from
 3 s to 10 s.  The expanded controller table uses ideal LTE RRC signaling to
 avoid treating stressed over-the-air control-plane scheduler assertions as
@@ -188,10 +191,33 @@ controllers that use forecast lead time without spatially selective inflation.
 
 \section{Related Work}
 
-This section will be filled with the final venue-specific literature review.
-The key groups to cover are RAN energy saving and cell sleep, digital-twin or
-model-predictive radio control, uncertainty-aware resource management, and
-robust handover or load-balancing methods.
+RAN energy-saving work has long identified base-station sleep, adaptive
+coverage, and heterogeneous deployment as central mechanisms for reducing
+cellular energy use \cite{hasan2011green}.  EARTH-style evaluation frameworks
+argue that energy claims need network-level traffic and power models, not only
+per-node power accounting \cite{auer2011energy}.  Cell zooming similarly shows
+that traffic-aware coverage adaptation can save energy, but also couples energy
+control to user demand, radio geometry, and neighboring-cell load
+\cite{niu2010cellzooming}.  UNO-UMB builds on this line of work, but focuses on
+the safety of sleep decisions under shifted or mispredicted demand rather than
+only on finding low-load intervals.
+
+Digital-twin network surveys position virtual network replicas as tools for
+monitoring, policy evaluation, and network management \cite{wu2021digitaltwin}.
+The ns-3 LTE simulator has also been used as an open substrate for evaluating
+LTE radio-resource and self-optimization behavior before deployment
+\cite{baldo2011lte}.  UNO-UMB takes a deliberately lightweight version of this
+idea: the twin is not a high-fidelity replica of an operator network, but a
+small risk model that predicts whether a proposed sleep placement will overload
+the remaining active cells.
+
+The forecast margin in UNO-UMB is related to the broader robust optimization
+tradeoff between protection against uncertainty and the cost of conservative
+decisions \cite{bertsimas2004price}.  The paper's contribution is to make this
+tradeoff spatially conditional for cell sleep: the controller inflates the
+forecast bound only when tight utilization slack coincides with close offload
+geometry, and the evaluation counts safety only on rows that are feasible in
+the all-on reference.
 
 \section{Conclusion}
 
@@ -201,5 +227,8 @@ center bursts, while selective overlap-gated forecast margins protect hard
 right-edge transitions without imposing a global conservative energy cost.  The
 current ns-3 prototype and experiment notes are ready for a first manuscript
 draft and a broader replication sweep.
+
+\bibliographystyle{abbrv}
+\bibliography{references}
 
 \end{document}

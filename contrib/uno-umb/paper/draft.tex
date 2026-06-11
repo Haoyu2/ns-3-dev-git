@@ -22,16 +22,17 @@ Cell sleep can reduce radio access network energy use, but load shifts can turn
 apparently safe sleep decisions into quality-of-service violations.  This paper
 presents UNO-UMB, an ns-3 prototype for uncertainty-aware cell sleep control.
 UNO-UMB combines a lightweight digital-twin risk gate, a latent-demand wakeup
-rule for unannounced shifts, and a forecast-risk margin that can be selectively
-inflated for tight close-offload decisions.  In an expanded LTE evaluation over
-five seeds, three runs, and three inter-site spacings, the adaptive wakeup
-recovers all 44/44 feasible center-burst rows where static risk gating is safe
-on 40/44.  On a right-edge transition surface with a 25\% underpredicted
-forecast, a base margin improves static control from 33/40 to 37/40 safe
-feasible rows.  A stronger global margin reaches 39/40 safety but lowers mean
-safe energy saving to 9.927\%, while a calibrated selective margin reaches the
-same 39/40 safety with 13.754\% mean safe energy saving.  These results
-suggest that spatially conditioned uncertainty control can preserve energy
+rule for unannounced shifts, forecast-risk margins, and a load-aware
+actionability gate that suppresses small underpredicted forecasts.  In an
+expanded LTE evaluation over five seeds, three runs, and three inter-site
+spacings, the adaptive wakeup recovers all 44/44 feasible center-burst rows
+where static risk gating is safe on 40/44.  On a right-edge transition surface
+with a 25\% underpredicted forecast, a calibrated selective margin reaches
+39/40 safety with 13.754\% mean safe energy saving, matching a stronger global
+margin that saves only 9.927\%.  On a 500 m UE-count/load grid, the adaptive
+actionability-gated margin reaches 39/39 safe feasible rows with 19.626\% mean
+safe energy saving, while the ungated 0.25 margin is safe on 37/39.  These
+results suggest that conditional uncertainty control can preserve energy
 savings while reducing transition risk.
 \end{abstract}
 
@@ -62,6 +63,9 @@ cell stress.
 \item A forecast-risk margin with selective overlap inflation, which applies a
 stronger bound only when a tight utilization decision also uses close offload
 geometry.
+\item A forecast actionability gate that reserves early forecast updates for
+larger shifted-load events and keeps smaller shifts on the reactive adaptive
+path.
 \item A feasible-row evaluation method that separates controller-induced
 violations from offered-load overload by comparing every controller row against
 the matching all-on reference row.
@@ -83,12 +87,16 @@ shifts where a previously safe sleep decision becomes unsafe before the next
 steady-state placement.
 
 For anticipated traffic shifts, UNO-UMB supports a lead-time forecast gate.  A
-forecast can carry both a magnitude error and an uncertainty margin.  The
-selective overlap variant uses a base uncertainty margin for ordinary forecast
-decisions, then inflates the margin only when the candidate decision has small
-utilization slack and nearby offload geometry.  This keeps the base margin on
-placements where it is already sufficient and avoids charging a stronger global
-margin to every forecasted decision.
+forecast can carry both a magnitude error and an uncertainty margin.  A
+load-aware actionability threshold first checks the forecasted shifted extra
+load.  Below the threshold, the controller suppresses the early forecast and
+uses the reactive demand update at the shift time; above it, the controller
+applies the configured forecasted rate and uncertainty margin.  The selective
+overlap variant uses a base uncertainty margin for ordinary forecast decisions,
+then inflates the margin only when the candidate decision has small utilization
+slack and nearby offload geometry.  This keeps the base margin on placements
+where it is already sufficient and avoids charging a stronger global margin to
+every forecasted decision.
 
 \section{Evaluation Setup}
 
@@ -192,12 +200,27 @@ from controller safety rates.
 An initial UE-count and load sweep at 500 m spacing reinforces this split.  At
 center 2x, adaptive wakeup remains safe on all 40/40 all-on-feasible rows over
 12, 16, and 20 UEs with per-UE rates from 0.8 to 1.2 Mb/s, while static twin
-control is safe on 35/40.  On the right-edge case, forecast margins still
-improve the no-forecast baseline, but the fixed calibrated selective trigger is
-load-sensitive: base 0.25 margin and selective twin control are each safe on
-37/39 feasible rows, while global 0.35 margin and selective adaptive control
-are safe on 36/39.  We therefore treat load-aware forecast calibration as
-future work rather than claiming full robustness across the load grid.
+control is safe on 35/40.  On the right-edge case, the fixed 0.25 forecast
+margin improves over no forecast but still leaves two feasible rows unsafe.  A
+3.25 Mb/s forecast actionability gate closes this gap for adaptive twin by
+routing smaller shifted-load rows through the reactive path and reserving
+forecast-margin protection for larger predicted shifts.
+
+\begin{table}[H]
+\centering
+\caption{Right-edge 1.5x UE-count/load grid at 500 m spacing.}
+\label{tab:load-grid}
+\begin{tabular}{llll}
+\hline
+Control & Policy & Safe rate & Saving \\
+\hline
+No forecast & adaptive & 31/39 & 16.437\% \\
+0.25 margin & adaptive & 37/39 & 19.258\% \\
+Gated 0.25 margin & twin & 37/39 & 19.258\% \\
+Gated 0.25 margin & adaptive & 39/39 & 19.626\% \\
+\hline
+\end{tabular}
+\end{table}
 
 The prototype should also be compared against stronger baselines, including
 controllers with calibrated static margins and controllers that use forecast
@@ -237,10 +260,11 @@ the all-on reference.
 
 UNO-UMB shows that cell sleep safety can benefit from separating reactive and
 forecasted uncertainty.  Latent-demand wakeup protects feasible unannounced
-center bursts, while selective overlap-gated forecast margins protect hard
-right-edge transitions without imposing the full global conservative energy
-cost.  The current ns-3 prototype and experiment notes are ready for a first
-manuscript review and the next load-aware forecast calibration pass.
+center bursts, while selective overlap-gated and actionability-gated forecast
+margins protect hard right-edge transitions without imposing the full global
+conservative energy cost.  The current ns-3 prototype and experiment notes are
+ready for a first manuscript review and a spacing cross-check of the load-aware
+gate.
 
 \bibliographystyle{abbrv}
 \bibliography{references}

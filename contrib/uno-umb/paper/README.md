@@ -22,13 +22,15 @@ Current backbone:
 
 - Reactive latent-demand wakeup for unannounced center-burst shifts.
 - Calibrated selective forecast margin for anticipated right-edge shifts.
+- Actionability-gated forecast margin for right-edge load-grid robustness.
 - Compact 5-seed result summary in `data/main-evaluation-summary.csv`.
 - Reproducibility notes in
   `contrib/uno-umb/experiments/replication-5seed3run-ideal.md`.
 - UE-count/load sweep note in
   `contrib/uno-umb/experiments/load-ue-rate-sweep.md`.
+- Forecast actionability-gate note in
+  `contrib/uno-umb/experiments/forecast-actionability-gate.md`.
 
-Before external review, tighten the limitations section around the remaining
-right-edge boundary row and the load-sweep sensitivity, calibrate a load-aware
-forecast trigger, and replace any placeholder venue-specific formatting with
-the target template.
+Before external review, decide whether the actionability-gated load-grid result
+should move into a main results table, run a spacing cross-check if time allows,
+and replace any placeholder venue-specific formatting with the target template.

@@ -189,23 +189,23 @@ is safe on `40/40`.  The adaptive controller pays an energy cost, but it
 removes controller-induced violations across every evaluable UE-count/rate
 cell.
 
-The right-edge result is useful but less settled.  Forecast margins improve
-the no-forecast baseline: no-forecast `twin` is safe on `32/39`, while the
-base `0.25` margin and calibrated selective `twin` are each safe on `37/39`.
+The right-edge result is useful but less settled.  Forecast margins improve the
+no-forecast baseline: no-forecast `twin` is safe on `32/39`, while the base
+`0.25` margin and calibrated selective `twin` are each safe on `37/39`.
 However, the fixed calibrated selective trigger does not dominate the simpler
 base margin under load variation.  The base `0.25` margin reaches the same
-`37/39` safety with slightly higher mean safe saving than selective `twin`,
-and selective `adaptive-twin` falls to `36/39`.
+`37/39` safety with slightly higher mean safe saving than selective `twin`, and
+selective `adaptive-twin` falls to `36/39`.
 
-This makes the next right-edge contribution sharper: the paper can keep the
-current calibrated selective result for the replicated spacing surface, but
-should present the UE-count/load sweep as evidence that forecast-risk gating
-needs load-aware calibration before claiming broad robustness.
+A follow-up actionability-gate experiment resolves this specific load-grid
+weakness for `adaptive-twin`: applying the `0.25` forecast margin only when the
+forecasted shifted extra load reaches `3.25 Mb/s` improves the right-edge load
+grid to `39/39` safe feasible rows with `19.626%` mean safe energy saving and no
+induced violations.  See `forecast-actionability-gate.md`.
 
 ## Draft Action
 
-Use this campaign as a limitations-and-next-step result rather than as a new
-main table.  The draft can state that adaptive latent-demand wakeup generalized
-cleanly across the moderate load grid, while right-edge forecast-risk gating
-requires a load-aware trigger or uncertainty rule before becoming a broad
-robustness claim.
+Use this campaign as the motivation for the actionability gate.  The draft can
+state that adaptive latent-demand wakeup generalized cleanly across the moderate
+center load grid, and that right-edge forecast protection needs a load-aware
+gate to avoid applying underpredicted forecasts to smaller shifted-load rows.

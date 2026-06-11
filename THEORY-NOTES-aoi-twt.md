@@ -123,6 +123,12 @@ Headline theorem targets (in descending ambition):
 
 1. Single-station E[A] formula vs simulation across (T, d, p) grid — also validates
    the TWT implementation itself (Section 2 formula is the test oracle).
+   STATUS (2026-06-11): DONE for p ~= 1 via scratch/twt-aoi-validation.cc with the
+   new src/wifi TwtPowerSaveManager. Error 0.016% (T=100ms,d=8ms) and 0.065%
+   (T=50ms,d=4ms); measured duty cycle 0.082 vs nominal 0.080 (delta = SP overrun +
+   pre-first-SP awake, as expected). p < 1 cases need a fading/error model (YANS
+   default has a hard SNR cliff: p=1 at 30m, p=0 at 45m for HeMcs3) — use Nakagami
+   or a controlled error model next.
 2. Per-wake overhead c_w measured from the ns-3 energy model (StateHelper traces)
    — feeds back into the model as a calibrated constant.
 3. Two-station disjoint-SP schedule: AoI additivity check (no coupling when SPs

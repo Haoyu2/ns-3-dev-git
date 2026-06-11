@@ -85,7 +85,16 @@ GPL-2.0). Cloned to `../refs/wifiTwt` and inspected (2026-06-11):
 - Missing: teardown, broadcast/announced/trigger-based TWT, MLD support.
 
 **Decision: clean re-implementation on ns-3.48, using wifiTwt as design reference,
-not a mechanical port.** Rationale: ns-3.48 now has a `PowerSaveManager` and a
+not a mechanical port.** UPDATE (implemented): ns-3.48's `PowerSaveManager` is an
+abstract base explicitly designed for pluggable doze/wake logic (added 2024 by
+S. Avallone, UNINA — the ICNS3 2026 host institution). The STA-side TWT mechanism is
+now `TwtPowerSaveManager` (`src/wifi/model/twt-power-save-manager.{h,cc}`), a
+~300-line subclass implementing individual implicit unannounced non-trigger-based
+TWT: periodic SP wake/doze cycle, and crucially NO wake on channel-access requests
+outside an SP (uplink defers to the next SP; `Txop::NotifyWakeUp` automatically
+restarts access at SP start when the PHY resumes). Compiles against unmodified wifi
+internals — the only `src/wifi` diff is the new file pair plus two CMakeLists lines,
+which is the best possible upstreaming position. Rationale: ns-3.48 now has a `PowerSaveManager` and a
 WifiPowerManagementMode state machine (`sta-wifi-mac.h`: WIFI_PM_ACTIVE /
 WIFI_PM_SWITCHING_TO_PS / WIFI_PM_POWERSAVE) that did not exist at the fork base —
 TWT should integrate with that state machine instead of raw PHY sleep calls. This is

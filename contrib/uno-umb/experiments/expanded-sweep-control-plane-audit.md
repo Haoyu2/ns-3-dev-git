@@ -210,6 +210,14 @@ recovers all `18/18` feasible center-burst rows where static `twin` is safe on
 right-edge rows where no-forecast `twin` is safe on `13/16` and no-forecast
 `adaptive-twin` is safe on `12/16`.
 
+The follow-up margin ablation is recorded in
+`right-edge-ideal-margin-comparison.md`.  On this expanded ideal-RRC surface,
+the base `0.25` margin also recovers all feasible right-edge rows, while a
+global `0.35` margin lowers safe energy saving and leaves one feasible sample
+unsafe.  The draft should therefore present selective overlap inflation as an
+overlap-aware guard against global over-conservatism, not as uniquely necessary
+for every expanded right-edge row.
+
 ## Next Step
 
 Use the ideal-RRC expanded table as the main manuscript table, and keep the

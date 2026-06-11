@@ -202,6 +202,9 @@ Experiment notes:
 - `experiments/expanded-sweep-control-plane-audit.md`: `3 seed x 2 run x 3
   spacing` expansion plus the real-RRC abort diagnosis and ideal-RRC follow-up
   path.
+- `experiments/right-edge-ideal-margin-comparison.md`: expanded ideal-RRC
+  right-edge margin ablation comparing no forecast, `0.25`, global `0.35`, and
+  selective overlap forecast margins.
 
 Paper draft:
 

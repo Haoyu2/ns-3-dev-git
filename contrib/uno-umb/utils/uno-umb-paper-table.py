@@ -14,8 +14,9 @@ CONTROL_ORDER = {
     "no forecast": 1,
     "perfect 1s lead": 2,
     "-25% forecast + 0.25 margin": 3,
-    "-25% forecast + selective 0.25/0.35 margin": 4,
-    "-25% forecast + selective overlap margin": 5,
+    "-25% forecast + 0.35 margin": 4,
+    "-25% forecast + selective 0.25/0.35 margin": 5,
+    "-25% forecast + selective overlap margin": 6,
 }
 POLICY_ORDER = {
     "all-on": 0,
@@ -88,12 +89,15 @@ def control_label(row):
         return "no forecast"
     if lead == 1.0 and min_lead == 0.0 and error == 0.0 and uncertainty == 0.0:
         return "perfect 1s lead"
-    if lead == 1.0 and min_lead == 1.0 and error == -0.25 and uncertainty == 0.25:
-        if selective_uncertainty == 0.35 and trigger_slack > 0.0:
+    if lead == 1.0 and min_lead == 1.0 and error == -0.25:
+        if uncertainty == 0.25 and selective_uncertainty == 0.35 and trigger_slack > 0.0:
             if trigger_max_offload > 0.0:
                 return "-25% forecast + selective overlap margin"
             return "-25% forecast + selective 0.25/0.35 margin"
-        return "-25% forecast + 0.25 margin"
+        if uncertainty == 0.25 and selective_uncertainty == 0.0:
+            return "-25% forecast + 0.25 margin"
+        if uncertainty == 0.35 and selective_uncertainty == 0.0:
+            return "-25% forecast + 0.35 margin"
     return "other"
 
 

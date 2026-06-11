@@ -19,13 +19,14 @@ Cell sleep can reduce radio access network energy use, but load shifts can turn
 apparently safe sleep decisions into quality-of-service violations.  This paper
 presents UNO-UMB, an ns-3 prototype for uncertainty-aware cell sleep control.
 UNO-UMB combines a lightweight digital-twin risk gate, a latent-demand wakeup
-rule for unannounced shifts, and a forecast-risk margin that is selectively
-inflated only for tight close-offload decisions.  In an expanded LTE evaluation
-over three seeds, two runs, and three inter-site spacings, the adaptive wakeup
+rule for unannounced shifts, and a forecast-risk margin that can be selectively
+inflated for tight close-offload decisions.  In an expanded LTE evaluation over
+three seeds, two runs, and three inter-site spacings, the adaptive wakeup
 recovers all 18/18 feasible center-burst rows where static risk gating is safe
 on 14/18.  On a right-edge transition surface with a 25\% underpredicted
-forecast, selective overlap-gated margins recover all 16/16 feasible rows with
-16.744\% mean safe energy saving.  These preliminary results suggest
+forecast, the forecast margin recovers all 16/16 feasible rows with 16.744\%
+mean safe energy saving, while a stronger global margin lowers safe saving and
+leaves one feasible row unsafe.  These preliminary results suggest
 that spatially conditioned uncertainty control can preserve energy savings
 while bounding transition risk.
 \end{abstract}
@@ -80,9 +81,9 @@ For anticipated traffic shifts, UNO-UMB supports a lead-time forecast gate.  A
 forecast can carry both a magnitude error and an uncertainty margin.  The
 selective overlap variant uses a base uncertainty margin for ordinary forecast
 decisions, then inflates the margin only when the candidate decision has small
-utilization slack and nearby offload geometry.  This condition matches the
-right-edge transition failures observed in the current experiments without
-charging the stronger margin to wider safe placements.
+utilization slack and nearby offload geometry.  This keeps the base margin on
+placements where it is already sufficient and avoids charging a stronger global
+margin to every forecasted decision.
 
 \section{Evaluation Setup}
 
@@ -122,8 +123,9 @@ Scenario & Policy & Safe rate & Saving \\
 
 Table~\ref{tab:right-edge} summarizes the right-edge transition surface across
 475 m, 500 m, and 525 m spacing.  The no-forecast controllers leave feasible
-rows unsafe.  The selective overlap margin recovers all 16 feasible rows while
-retaining high energy saving.
+rows unsafe.  The base 0.25 margin and selective overlap margin both recover
+all 16 feasible rows.  A global 0.35 margin is more conservative, but loses one
+feasible row and substantially lowers safe energy saving.
 
 \begin{table}[t]
 \centering
@@ -135,17 +137,22 @@ Control & Policy & Safe rate & Saving \\
 \hline
 No forecast & twin & 13/16 & 16.295\% \\
 No forecast & adaptive & 12/16 & 10.614\% \\
+0.25 margin & twin & 16/16 & 16.744\% \\
+0.25 margin & adaptive & 16/16 & 16.744\% \\
+0.35 margin & twin & 15/16 & 10.465\% \\
+0.35 margin & adaptive & 15/16 & 10.465\% \\
 Selective margin & twin & 16/16 & 16.744\% \\
 Selective margin & adaptive & 16/16 & 16.744\% \\
 \hline
 \end{tabular}
 \end{table}
 
-The selective result is the strongest current evidence for the paper.  It
+The forecast-margin result is the strongest current evidence for the paper.  It
 removes every induced right-edge transition violation in the expanded feasible
 surface while slightly increasing safe mean energy saving relative to
 no-forecast control, because unsafe high-saving rows no longer have to be
-discarded from the safe set.
+discarded from the safe set.  Selective overlap inflation preserves this result
+without paying the energy and residual safety cost of the global 0.35 margin.
 
 \section{Discussion and Limitations}
 

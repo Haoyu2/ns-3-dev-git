@@ -189,10 +189,19 @@ claim that every offered-load scenario can be made safe by control.  Some rows
 are overloaded even when all cells remain active, and those rows are excluded
 from controller safety rates.
 
-The next validation step is a broader sweep over UE rates, UE counts, and
-additional traffic geometries.  The prototype should also be compared against
-stronger baselines, including controllers with calibrated static margins and
-controllers that use forecast lead time without spatially selective inflation.
+An initial UE-count and load sweep at 500 m spacing reinforces this split.  At
+center 2x, adaptive wakeup remains safe on all 40/40 all-on-feasible rows over
+12, 16, and 20 UEs with per-UE rates from 0.8 to 1.2 Mb/s, while static twin
+control is safe on 35/40.  On the right-edge case, forecast margins still
+improve the no-forecast baseline, but the fixed calibrated selective trigger is
+load-sensitive: base 0.25 margin and selective twin control are each safe on
+37/39 feasible rows, while global 0.35 margin and selective adaptive control
+are safe on 36/39.  We therefore treat load-aware forecast calibration as
+future work rather than claiming full robustness across the load grid.
+
+The prototype should also be compared against stronger baselines, including
+controllers with calibrated static margins and controllers that use forecast
+lead time without spatially selective inflation.
 
 \section{Related Work}
 
@@ -231,7 +240,7 @@ forecasted uncertainty.  Latent-demand wakeup protects feasible unannounced
 center bursts, while selective overlap-gated forecast margins protect hard
 right-edge transitions without imposing the full global conservative energy
 cost.  The current ns-3 prototype and experiment notes are ready for a first
-manuscript review and a broader UE-count and load sweep.
+manuscript review and the next load-aware forecast calibration pass.
 
 \bibliographystyle{abbrv}
 \bibliography{references}

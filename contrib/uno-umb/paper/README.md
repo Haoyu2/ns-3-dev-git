@@ -25,7 +25,10 @@ Current backbone:
 - Compact 5-seed result summary in `data/main-evaluation-summary.csv`.
 - Reproducibility notes in
   `contrib/uno-umb/experiments/replication-5seed3run-ideal.md`.
+- UE-count/load sweep note in
+  `contrib/uno-umb/experiments/load-ue-rate-sweep.md`.
 
-Before external review, run the next UE-count/load sweep, tighten the
-limitations section around the remaining boundary row, and replace any
-placeholder venue-specific formatting with the target template.
+Before external review, tighten the limitations section around the remaining
+right-edge boundary row and the load-sweep sensitivity, calibrate a load-aware
+forecast trigger, and replace any placeholder venue-specific formatting with
+the target template.

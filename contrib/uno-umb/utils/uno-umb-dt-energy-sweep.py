@@ -137,9 +137,14 @@ def make_failure_row(
     )
     if forecast_lead_applied:
         controller_shift_start_s = max(shift_start_s - forecast_lead_time_s, 0.6)
-    controller_burst_rate_multiplier = 1.0 + max(
-        (forecast_base_burst_rate_multiplier - 1.0) * (1.0 + forecast_burst_rate_error),
-        0.0,
+    controller_burst_rate_multiplier = (
+        1.0
+        + max(
+            (forecast_base_burst_rate_multiplier - 1.0) * (1.0 + forecast_burst_rate_error),
+            0.0,
+        )
+        if forecast_lead_applied
+        else burst_rate_multiplier
     )
     forecast_utilization_margin = 0.0
     if forecast_lead_applied:

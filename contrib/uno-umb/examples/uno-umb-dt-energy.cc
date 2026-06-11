@@ -455,14 +455,15 @@ main(int argc, char* argv[])
         burstEnabled ? shiftedUes.size() * ueRateMbps *
                            std::max(forecastBaseBurstRateMultiplier - 1.0, 0.0)
                      : 0.0;
-    const double controllerBurstRateMultiplier =
-        1.0 + std::max((forecastBaseBurstRateMultiplier - 1.0) *
-                           (1.0 + forecastBurstRateError),
-                       0.0);
     Time controllerShiftStart = shiftStart;
     const bool forecastLeadApplied =
         burstEnabled && forecastLeadTime > Seconds(0) && forecastLeadTime >= minForecastLeadTime &&
         forecastBurstExtraLoadMbps >= forecastMinBurstExtraLoadMbps;
+    const double controllerBurstRateMultiplier =
+        forecastLeadApplied ? 1.0 + std::max((forecastBaseBurstRateMultiplier - 1.0) *
+                                                 (1.0 + forecastBurstRateError),
+                                             0.0)
+                            : burstRateMultiplier;
     if (forecastLeadApplied)
     {
         controllerShiftStart = shiftStart - forecastLeadTime;

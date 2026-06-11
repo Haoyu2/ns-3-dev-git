@@ -84,6 +84,11 @@ python3 contrib/uno-umb/utils/uno-umb-dt-energy-sweep.py \
   --jobs=8
 ```
 
+For large handover-heavy controller sweeps, `--use-ideal-rrc-values=true`
+abstracts LTE RRC signaling and avoids counting stressed control-plane AM RLC
+assertions as controller outcomes.  The default remains `false` for
+compatibility with earlier experiment notes.
+
 Adaptive calibration sweep:
 
 ```bash
@@ -194,6 +199,9 @@ Experiment notes:
 - `experiments/main-paper-table-selective.md`: combined main paper table that
   joins the center-burst adaptive-wakeup result with the right-edge selective
   overlap forecast-margin surface.
+- `experiments/expanded-sweep-control-plane-audit.md`: `3 seed x 2 run x 3
+  spacing` expansion plus the real-RRC abort diagnosis and ideal-RRC follow-up
+  path.
 
 Paper draft:
 

@@ -186,6 +186,7 @@ main(int argc, char* argv[])
     double sleepPowerW = 25.0;
     double minGoodputRatio = 0.85;
     double delaySlaMs = 80.0;
+    bool useIdealRrc = false;
     Time simTime = Seconds(12.0);
     Time appStart = Seconds(0.6);
     Time controlStart = Seconds(2.0);
@@ -310,6 +311,9 @@ main(int argc, char* argv[])
     cmd.AddValue("sleepPowerW", "Analytical sleeping eNB power draw", sleepPowerW);
     cmd.AddValue("minGoodputRatio", "SLA goodput target relative to offered load", minGoodputRatio);
     cmd.AddValue("delaySlaMs", "Mean delay SLA in milliseconds", delaySlaMs);
+    cmd.AddValue("useIdealRrc",
+                 "Use ideal LTE RRC signaling instead of over-the-air RRC signaling",
+                 useIdealRrc);
     cmd.AddValue("packetSizeBytes", "UDP packet payload size", packetSizeBytes);
     cmd.AddValue("seed", "RNG seed", seed);
     cmd.AddValue("run", "RNG run", run);
@@ -357,7 +361,7 @@ main(int argc, char* argv[])
 
     RngSeedManager::SetSeed(seed);
     RngSeedManager::SetRun(run);
-    Config::SetDefault("ns3::LteHelper::UseIdealRrc", BooleanValue(false));
+    Config::SetDefault("ns3::LteHelper::UseIdealRrc", BooleanValue(useIdealRrc));
     Config::SetDefault("ns3::LteEnbPhy::TxPower", DoubleValue(activeTxPowerDbm));
     Config::SetDefault("ns3::UdpClient::MaxPackets", UintegerValue(100000000));
     Config::SetDefault("ns3::UdpClient::PacketSize", UintegerValue(packetSizeBytes));
@@ -666,7 +670,8 @@ main(int argc, char* argv[])
                << "adaptive_max_uncertainty_scale,adaptive_load_shock_gain,"
                << "adaptive_utilization_gain,adaptive_relaxation,"
                << "adaptive_latent_load_threshold,adaptive_wake_relief_threshold,"
-               << "reevaluate_on_demand_change,handover_guard_time_s,throughput_mbps,"
+               << "reevaluate_on_demand_change,use_ideal_rrc,handover_guard_time_s,"
+               << "throughput_mbps,"
                << "tx_packets,rx_packets,tx_bytes,rx_bytes,loss_ratio,"
                << "mean_delay_ms,energy_j,all_on_energy_j,energy_saving_pct,"
                << "active_cell_seconds,unsafe_sleep_actions,handover_requests,sla_violation\n";
@@ -692,10 +697,10 @@ main(int argc, char* argv[])
                << adaptiveLoadShockGain << "," << adaptiveUtilizationGain << ","
                << adaptiveRelaxation << "," << adaptiveLatentLoadThreshold << ","
                << adaptiveWakeReliefThreshold << "," << (reevaluateOnDemandChange ? 1 : 0)
-               << "," << handoverGuardTime.GetSeconds() << "," << throughputMbps << ","
-               << txPackets << "," << rxPackets << "," << txBytes << "," << rxBytes << ","
-               << lossRatio << "," << meanDelayMs << "," << controller.GetEnergyJ() << ","
-               << allOnEnergyJ << "," << energySavingPct << ","
+               << "," << (useIdealRrc ? 1 : 0) << "," << handoverGuardTime.GetSeconds() << ","
+               << throughputMbps << "," << txPackets << "," << rxPackets << "," << txBytes
+               << "," << rxBytes << "," << lossRatio << "," << meanDelayMs << ","
+               << controller.GetEnergyJ() << "," << allOnEnergyJ << "," << energySavingPct << ","
                << controller.GetActiveCellSeconds() << ","
                << controller.GetUnsafeSleepActions() << "," << controller.GetHandoverRequests()
                << "," << (slaViolation ? 1 : 0) << "\n";

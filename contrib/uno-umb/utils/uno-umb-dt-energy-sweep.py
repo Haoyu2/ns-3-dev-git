@@ -84,6 +84,7 @@ def make_failure_row(
     forecast_margin_trigger_slack,
     forecast_margin_trigger_max_offload_m,
     forecast_correction_delay,
+    use_ideal_rrc,
     traffic_profile,
     burst_rate_multiplier,
     shift_start,
@@ -211,6 +212,7 @@ def make_failure_row(
         "adaptive_relaxation": adaptive_relaxation,
         "adaptive_latent_load_threshold": adaptive_latent_load_threshold,
         "adaptive_wake_relief_threshold": adaptive_wake_relief_threshold,
+        "use_ideal_rrc": 1 if use_ideal_rrc else 0,
         "throughput_mbps": 0.0,
         "tx_packets": 0,
         "rx_packets": 0,
@@ -246,6 +248,21 @@ def write_aggregate_csv(aggregate_rows, aggregate_csv):
         writer = csv.DictWriter(handle, fieldnames=fieldnames, extrasaction="ignore")
         writer.writeheader()
         writer.writerows(aggregate_rows)
+
+
+def split_bool_csv(value):
+    bools = []
+    for item in value.split(","):
+        normalized = item.strip().lower()
+        if not normalized:
+            continue
+        if normalized in {"1", "true", "yes", "on"}:
+            bools.append(True)
+        elif normalized in {"0", "false", "no", "off"}:
+            bools.append(False)
+        else:
+            raise ValueError(f"Invalid boolean value: {item}")
+    return bools
 
 
 def child_sweep_command(args, script, shard_dir, shard_index):
@@ -384,6 +401,11 @@ def main():
     parser.add_argument("--forecast-margin-trigger-slacks", default="0.0")
     parser.add_argument("--forecast-margin-trigger-max-offloads", default="0.0")
     parser.add_argument("--forecast-correction-delays", default="off")
+    parser.add_argument(
+        "--use-ideal-rrc-values",
+        default="false",
+        help="Comma-separated bools for ideal LTE RRC signaling",
+    )
     parser.add_argument("--traffic-profiles", default="steady,center-burst")
     parser.add_argument("--burst-rate-multipliers", default="3.0")
     parser.add_argument("--shift-start", default="3.0s")
@@ -453,6 +475,7 @@ def main():
         float,
     )
     forecast_correction_delays = split_csv(args.forecast_correction_delays)
+    use_ideal_rrc_values = split_bool_csv(args.use_ideal_rrc_values)
     traffic_profiles = split_csv(args.traffic_profiles)
     burst_rate_multipliers = split_csv(args.burst_rate_multipliers, float)
 
@@ -496,6 +519,7 @@ def main():
             forecast_margin_trigger_slacks,
             forecast_margin_trigger_max_offloads,
             forecast_correction_delays,
+            use_ideal_rrc_values,
             traffic_profiles,
             burst_rate_multipliers,
         )
@@ -526,6 +550,7 @@ def main():
         forecast_margin_trigger_slack,
         forecast_margin_trigger_max_offload_m,
         forecast_correction_delay,
+        use_ideal_rrc,
         traffic_profile,
         burst_rate_multiplier,
     ) in enumerate(combinations, start=1):
@@ -556,6 +581,7 @@ def main():
             forecast_margin_trigger_slack,
             forecast_margin_trigger_max_offload_m,
             forecast_correction_delay,
+            use_ideal_rrc,
             traffic_profile,
             effective_burst_rate_multiplier,
         )
@@ -613,6 +639,7 @@ def main():
             f"--forecastMarginTriggerSlack={forecast_margin_trigger_slack} "
             f"--forecastMarginTriggerMaxOffloadMeters={forecast_margin_trigger_max_offload_m} "
             f"{correction_arg}"
+            f"--useIdealRrc={str(use_ideal_rrc).lower()} "
             f"--trafficProfile={traffic_profile} "
             f"--burstRateMultiplier={effective_burst_rate_multiplier} "
             f"--shiftStart={args.shift_start} "
@@ -652,6 +679,7 @@ def main():
                 "forecast_margin_trigger_slack": forecast_margin_trigger_slack,
                 "forecast_margin_trigger_max_offload_m": forecast_margin_trigger_max_offload_m,
                 "forecast_correction_delay": forecast_correction_delay,
+                "use_ideal_rrc": use_ideal_rrc,
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,
                 "command": run_command_args,
@@ -694,6 +722,7 @@ def main():
                     forecast_margin_trigger_slack=forecast_margin_trigger_slack,
                     forecast_margin_trigger_max_offload_m=forecast_margin_trigger_max_offload_m,
                     forecast_correction_delay=forecast_correction_delay,
+                    use_ideal_rrc=use_ideal_rrc,
                     traffic_profile=traffic_profile,
                     burst_rate_multiplier=effective_burst_rate_multiplier,
                     shift_start=args.shift_start,
@@ -736,6 +765,7 @@ def main():
                 "forecast_margin_trigger_slack": forecast_margin_trigger_slack,
                 "forecast_margin_trigger_max_offload_m": forecast_margin_trigger_max_offload_m,
                 "forecast_correction_delay_s": as_optional_seconds(forecast_correction_delay),
+                "use_ideal_rrc": 1 if use_ideal_rrc else 0,
                 "traffic_profile": traffic_profile,
                 "burst_rate_multiplier": effective_burst_rate_multiplier,
                 "shift_start": args.shift_start,

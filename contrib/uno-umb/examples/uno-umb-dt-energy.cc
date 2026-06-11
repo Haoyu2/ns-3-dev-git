@@ -197,6 +197,7 @@ main(int argc, char* argv[])
     Time shiftStop = Seconds(10.0);
     Time forecastLeadTime = Seconds(0.0);
     Time minForecastLeadTime = Seconds(0.0);
+    double forecastMinBurstExtraLoadMbps = 0.0;
     double forecastBurstRateMultiplier = 0.0;
     double forecastBurstRateError = 0.0;
     double forecastBurstRateUncertainty = 0.0;
@@ -232,6 +233,9 @@ main(int argc, char* argv[])
     cmd.AddValue("minForecastLeadTime",
                  "Minimum lead time required before applying a forecast early",
                  minForecastLeadTime);
+    cmd.AddValue("forecastMinBurstExtraLoadMbps",
+                 "Minimum forecasted shifted extra load before applying a forecast early",
+                 forecastMinBurstExtraLoadMbps);
     cmd.AddValue("forecastBurstRateMultiplier",
                  "Controller-side burst multiplier forecast; 0 uses burstRateMultiplier",
                  forecastBurstRateMultiplier);
@@ -328,6 +332,8 @@ main(int argc, char* argv[])
     NS_ABORT_MSG_IF(shiftStop <= shiftStart, "shiftStop must be later than shiftStart.");
     NS_ABORT_MSG_IF(forecastLeadTime < Seconds(0), "forecastLeadTime must be non-negative.");
     NS_ABORT_MSG_IF(minForecastLeadTime < Seconds(0), "minForecastLeadTime must be non-negative.");
+    NS_ABORT_MSG_IF(forecastMinBurstExtraLoadMbps < 0.0,
+                    "forecastMinBurstExtraLoadMbps must be non-negative.");
     NS_ABORT_MSG_IF(forecastBurstRateMultiplier < 0.0 ||
                         (forecastBurstRateMultiplier > 0.0 && forecastBurstRateMultiplier < 1.0),
                     "forecastBurstRateMultiplier must be 0 or at least 1.0.");
@@ -445,13 +451,18 @@ main(int argc, char* argv[])
         burstEnabled ? ueRateMbps * (burstRateMultiplier - 1.0) : 0.0;
     const double forecastBaseBurstRateMultiplier =
         (forecastBurstRateMultiplier > 0.0) ? forecastBurstRateMultiplier : burstRateMultiplier;
+    const double forecastBurstExtraLoadMbps =
+        burstEnabled ? shiftedUes.size() * ueRateMbps *
+                           std::max(forecastBaseBurstRateMultiplier - 1.0, 0.0)
+                     : 0.0;
     const double controllerBurstRateMultiplier =
         1.0 + std::max((forecastBaseBurstRateMultiplier - 1.0) *
                            (1.0 + forecastBurstRateError),
                        0.0);
     Time controllerShiftStart = shiftStart;
     const bool forecastLeadApplied =
-        burstEnabled && forecastLeadTime > Seconds(0) && forecastLeadTime >= minForecastLeadTime;
+        burstEnabled && forecastLeadTime > Seconds(0) && forecastLeadTime >= minForecastLeadTime &&
+        forecastBurstExtraLoadMbps >= forecastMinBurstExtraLoadMbps;
     if (forecastLeadApplied)
     {
         controllerShiftStart = shiftStart - forecastLeadTime;
@@ -657,7 +668,8 @@ main(int argc, char* argv[])
     summaryOut << "policy,traffic_profile,seed,run,enbs,ues,shift_ues,sim_time_s,"
                << "offered_load_mbps,base_offered_load_mbps,burst_extra_load_mbps,"
                << "burst_rate_multiplier,shift_start_s,shift_stop_s,forecast_lead_time_s,"
-               << "min_forecast_lead_time_s,forecast_lead_applied,"
+               << "min_forecast_lead_time_s,forecast_min_burst_extra_load_mbps,"
+               << "forecast_burst_extra_load_mbps,forecast_lead_applied,"
                << "forecast_burst_rate_multiplier,forecast_burst_rate_error,"
                << "forecast_burst_rate_uncertainty,forecast_utilization_margin,"
                << "selective_forecast_burst_rate_uncertainty,"
@@ -682,6 +694,7 @@ main(int argc, char* argv[])
                << burstExtraLoadMbps << "," << burstRateMultiplier << ","
                << shiftStart.GetSeconds() << "," << shiftStop.GetSeconds() << ","
                << forecastLeadTime.GetSeconds() << "," << minForecastLeadTime.GetSeconds()
+               << "," << forecastMinBurstExtraLoadMbps << "," << forecastBurstExtraLoadMbps
                << "," << (forecastLeadApplied ? 1 : 0) << ","
                << controllerBurstRateMultiplier << "," << forecastBurstRateError << ","
                << forecastBurstRateUncertainty << "," << forecastUtilizationMargin << ","

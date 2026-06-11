@@ -72,6 +72,8 @@ def normalize_row(row):
         "forecast_lead_applied",
         "1" if float(row["forecast_lead_time_s"]) > 0.0 else "0",
     )
+    row.setdefault("forecast_min_burst_extra_load_mbps", "0.0")
+    row.setdefault("forecast_burst_extra_load_mbps", "0.0")
     row.setdefault("forecast_burst_rate_multiplier", row.get("burst_rate_multiplier", "1.0"))
     row.setdefault("forecast_burst_rate_error", "0.0")
     row.setdefault("forecast_burst_rate_uncertainty", "0.0")
@@ -191,6 +193,8 @@ def write_run_status_summary(rows, output_dir):
         "adaptive_wake_relief_threshold",
         "forecast_lead_time_s",
         "min_forecast_lead_time_s",
+        "forecast_min_burst_extra_load_mbps",
+        "forecast_burst_extra_load_mbps",
         "forecast_burst_rate_multiplier",
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
@@ -300,6 +304,8 @@ def write_scenario_summary(rows, output_dir):
         "forecast_lead_time_s",
         "min_forecast_lead_time_s",
         "forecast_lead_applied",
+        "forecast_min_burst_extra_load_mbps",
+        "forecast_burst_extra_load_mbps",
         "forecast_burst_rate_multiplier",
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
@@ -357,6 +363,8 @@ def write_pairwise_comparison(rows, output_dir):
         "forecast_lead_time_s",
         "min_forecast_lead_time_s",
         "forecast_lead_applied",
+        "forecast_min_burst_extra_load_mbps",
+        "forecast_burst_extra_load_mbps",
         "forecast_burst_rate_multiplier",
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
@@ -485,6 +493,8 @@ def write_feasibility_comparison(rows, output_dir):
         "forecast_lead_time_s",
         "min_forecast_lead_time_s",
         "forecast_lead_applied",
+        "forecast_min_burst_extra_load_mbps",
+        "forecast_burst_extra_load_mbps",
         "forecast_burst_rate_multiplier",
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
@@ -538,6 +548,14 @@ def write_feasibility_comparison(rows, output_dir):
                 "forecast_lead_time_s": row.get("forecast_lead_time_s", ""),
                 "min_forecast_lead_time_s": row.get("min_forecast_lead_time_s", ""),
                 "forecast_lead_applied": row.get("forecast_lead_applied", ""),
+                "forecast_min_burst_extra_load_mbps": row.get(
+                    "forecast_min_burst_extra_load_mbps",
+                    "",
+                ),
+                "forecast_burst_extra_load_mbps": row.get(
+                    "forecast_burst_extra_load_mbps",
+                    "",
+                ),
                 "forecast_burst_rate_multiplier": row.get("forecast_burst_rate_multiplier", ""),
                 "forecast_burst_rate_error": row.get("forecast_burst_rate_error", ""),
                 "forecast_burst_rate_uncertainty": row.get(
@@ -607,6 +625,8 @@ def write_feasible_policy_summary(feasibility_rows, output_dir):
         "forecast_lead_time_s",
         "min_forecast_lead_time_s",
         "forecast_lead_applied",
+        "forecast_min_burst_extra_load_mbps",
+        "forecast_burst_extra_load_mbps",
         "forecast_burst_rate_multiplier",
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",
@@ -680,6 +700,8 @@ def write_feasibility_envelope_summary(feasibility_rows, output_dir):
         "forecast_lead_time_s",
         "min_forecast_lead_time_s",
         "forecast_lead_applied",
+        "forecast_min_burst_extra_load_mbps",
+        "forecast_burst_extra_load_mbps",
         "forecast_burst_rate_multiplier",
         "forecast_burst_rate_error",
         "forecast_burst_rate_uncertainty",

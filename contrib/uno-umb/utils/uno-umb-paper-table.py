@@ -14,9 +14,13 @@ CONTROL_ORDER = {
     "no forecast": 1,
     "perfect 1s lead": 2,
     "-25% forecast + 0.25 margin": 3,
-    "-25% forecast + 0.35 margin": 4,
-    "-25% forecast + selective 0.25/0.35 margin": 5,
-    "-25% forecast + selective overlap margin": 6,
+    "-25% forecast + gated 0.25 margin": 4,
+    "-25% forecast + 0.35 margin": 5,
+    "-25% forecast + gated 0.35 margin": 6,
+    "-25% forecast + selective 0.25/0.35 margin": 7,
+    "-25% forecast + gated selective 0.25/0.35 margin": 8,
+    "-25% forecast + selective overlap margin": 9,
+    "-25% forecast + gated selective overlap margin": 10,
 }
 POLICY_ORDER = {
     "all-on": 0,
@@ -47,6 +51,8 @@ def normalize_row(row):
     if not row.get("forecast_lead_time_s", ""):
         row["forecast_lead_time_s"] = "0.0"
     row.setdefault("min_forecast_lead_time_s", "0.0")
+    row.setdefault("forecast_min_burst_extra_load_mbps", "0.0")
+    row.setdefault("forecast_burst_extra_load_mbps", "0.0")
     row.setdefault("forecast_burst_rate_error", "0.0")
     row.setdefault("forecast_burst_rate_uncertainty", "0.0")
     row.setdefault("selective_forecast_burst_rate_uncertainty", "0.0")
@@ -80,6 +86,7 @@ def control_label(row):
     profile = row["traffic_profile"]
     lead = as_float(row, "forecast_lead_time_s")
     min_lead = as_float(row, "min_forecast_lead_time_s")
+    min_extra = as_float(row, "forecast_min_burst_extra_load_mbps")
     error = as_float(row, "forecast_burst_rate_error")
     uncertainty = as_float(row, "forecast_burst_rate_uncertainty")
     selective_uncertainty = as_float(row, "selective_forecast_burst_rate_uncertainty")
@@ -93,11 +100,19 @@ def control_label(row):
     if lead == 1.0 and min_lead == 1.0 and error == -0.25:
         if uncertainty == 0.25 and selective_uncertainty == 0.35 and trigger_slack > 0.0:
             if trigger_max_offload > 0.0:
+                if min_extra > 0.0:
+                    return "-25% forecast + gated selective overlap margin"
                 return "-25% forecast + selective overlap margin"
+            if min_extra > 0.0:
+                return "-25% forecast + gated selective 0.25/0.35 margin"
             return "-25% forecast + selective 0.25/0.35 margin"
         if uncertainty == 0.25 and selective_uncertainty == 0.0:
+            if min_extra > 0.0:
+                return "-25% forecast + gated 0.25 margin"
             return "-25% forecast + 0.25 margin"
         if uncertainty == 0.35 and selective_uncertainty == 0.0:
+            if min_extra > 0.0:
+                return "-25% forecast + gated 0.35 margin"
             return "-25% forecast + 0.35 margin"
     return "other"
 

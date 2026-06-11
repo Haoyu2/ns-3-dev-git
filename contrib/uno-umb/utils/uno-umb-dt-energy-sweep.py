@@ -77,6 +77,7 @@ def make_failure_row(
     adaptive_wake_relief_threshold,
     forecast_lead_time,
     min_forecast_lead_time,
+    forecast_min_burst_extra_load,
     forecast_burst_rate_multiplier,
     forecast_burst_rate_error,
     forecast_burst_rate_uncertainty,
@@ -117,19 +118,25 @@ def make_failure_row(
         burst_duration_s / measurement_s
     )
     controller_shift_start_s = shift_start_s
-    forecast_lead_applied = (
-        shift_ues > 0
-        and burst_rate_multiplier > 1.0
-        and forecast_lead_time_s > 0.0
-        and forecast_lead_time_s >= min_forecast_lead_time_s
-    )
-    if forecast_lead_applied:
-        controller_shift_start_s = max(shift_start_s - forecast_lead_time_s, 0.6)
     forecast_base_burst_rate_multiplier = (
         forecast_burst_rate_multiplier
         if forecast_burst_rate_multiplier > 0.0
         else burst_rate_multiplier
     )
+    forecast_burst_extra_load_mbps = (
+        shift_ues * ue_rate * max(forecast_base_burst_rate_multiplier - 1.0, 0.0)
+        if shift_ues > 0 and burst_rate_multiplier > 1.0
+        else 0.0
+    )
+    forecast_lead_applied = (
+        shift_ues > 0
+        and burst_rate_multiplier > 1.0
+        and forecast_lead_time_s > 0.0
+        and forecast_lead_time_s >= min_forecast_lead_time_s
+        and forecast_burst_extra_load_mbps >= forecast_min_burst_extra_load
+    )
+    if forecast_lead_applied:
+        controller_shift_start_s = max(shift_start_s - forecast_lead_time_s, 0.6)
     controller_burst_rate_multiplier = 1.0 + max(
         (forecast_base_burst_rate_multiplier - 1.0) * (1.0 + forecast_burst_rate_error),
         0.0,
@@ -188,6 +195,8 @@ def make_failure_row(
         "shift_stop_s": shift_stop_s,
         "forecast_lead_time_s": forecast_lead_time_s,
         "min_forecast_lead_time_s": min_forecast_lead_time_s,
+        "forecast_min_burst_extra_load_mbps": forecast_min_burst_extra_load,
+        "forecast_burst_extra_load_mbps": forecast_burst_extra_load_mbps,
         "forecast_lead_applied": 1 if forecast_lead_applied else 0,
         "forecast_burst_rate_multiplier": controller_burst_rate_multiplier,
         "forecast_burst_rate_error": forecast_burst_rate_error,
@@ -394,6 +403,7 @@ def main():
     parser.add_argument("--adaptive-wake-relief-thresholds", default="0.08")
     parser.add_argument("--forecast-lead-times", default="0.0s")
     parser.add_argument("--min-forecast-lead-times", default="0.0s")
+    parser.add_argument("--forecast-min-burst-extra-loads", default="0.0")
     parser.add_argument("--forecast-burst-rate-multipliers", default="0.0")
     parser.add_argument("--forecast-burst-rate-errors", default="0.0")
     parser.add_argument("--forecast-burst-rate-uncertainties", default="0.0")
@@ -459,6 +469,7 @@ def main():
     adaptive_wake_relief_thresholds = split_csv(args.adaptive_wake_relief_thresholds, float)
     forecast_lead_times = split_csv(args.forecast_lead_times)
     min_forecast_lead_times = split_csv(args.min_forecast_lead_times)
+    forecast_min_burst_extra_loads = split_csv(args.forecast_min_burst_extra_loads, float)
     forecast_burst_rate_multipliers = split_csv(args.forecast_burst_rate_multipliers, float)
     forecast_burst_rate_errors = split_csv(args.forecast_burst_rate_errors, float)
     forecast_burst_rate_uncertainties = split_csv(
@@ -512,6 +523,7 @@ def main():
             adaptive_wake_relief_thresholds,
             forecast_lead_times,
             min_forecast_lead_times,
+            forecast_min_burst_extra_loads,
             forecast_burst_rate_multipliers,
             forecast_burst_rate_errors,
             forecast_burst_rate_uncertainties,
@@ -543,6 +555,7 @@ def main():
         adaptive_wake_relief_threshold,
         forecast_lead_time,
         min_forecast_lead_time,
+        forecast_min_burst_extra_load,
         forecast_burst_rate_multiplier,
         forecast_burst_rate_error,
         forecast_burst_rate_uncertainty,
@@ -574,6 +587,7 @@ def main():
             adaptive_wake_relief_threshold,
             forecast_lead_time,
             min_forecast_lead_time,
+            forecast_min_burst_extra_load,
             forecast_burst_rate_multiplier,
             forecast_burst_rate_error,
             forecast_burst_rate_uncertainty,
@@ -601,6 +615,7 @@ def main():
         run_id = (
             f"{index:04d}-{policy}-s{seed}-r{run}-u{ues}-d{spacing}"
             f"-{traffic_profile}-b{effective_burst_rate_multiplier}"
+            f"-fmel{forecast_min_burst_extra_load}"
             f"-fe{forecast_burst_rate_error}-fu{forecast_burst_rate_uncertainty}"
             f"-sfu{selective_forecast_burst_rate_uncertainty}"
             f"-sl{forecast_margin_trigger_slack}-od{forecast_margin_trigger_max_offload_m}"
@@ -632,6 +647,7 @@ def main():
             f"--adaptiveWakeReliefThreshold={adaptive_wake_relief_threshold} "
             f"--forecastLeadTime={forecast_lead_time} "
             f"--minForecastLeadTime={min_forecast_lead_time} "
+            f"--forecastMinBurstExtraLoadMbps={forecast_min_burst_extra_load} "
             f"--forecastBurstRateMultiplier={forecast_burst_rate_multiplier} "
             f"--forecastBurstRateError={forecast_burst_rate_error} "
             f"--forecastBurstRateUncertainty={forecast_burst_rate_uncertainty} "
@@ -670,6 +686,7 @@ def main():
                 "adaptive_wake_relief_threshold": adaptive_wake_relief_threshold,
                 "forecast_lead_time": forecast_lead_time,
                 "min_forecast_lead_time": min_forecast_lead_time,
+                "forecast_min_burst_extra_load_mbps": forecast_min_burst_extra_load,
                 "forecast_burst_rate_multiplier": forecast_burst_rate_multiplier,
                 "forecast_burst_rate_error": forecast_burst_rate_error,
                 "forecast_burst_rate_uncertainty": forecast_burst_rate_uncertainty,
@@ -713,6 +730,7 @@ def main():
                     adaptive_wake_relief_threshold=adaptive_wake_relief_threshold,
                     forecast_lead_time=forecast_lead_time,
                     min_forecast_lead_time=min_forecast_lead_time,
+                    forecast_min_burst_extra_load=forecast_min_burst_extra_load,
                     forecast_burst_rate_multiplier=forecast_burst_rate_multiplier,
                     forecast_burst_rate_error=forecast_burst_rate_error,
                     forecast_burst_rate_uncertainty=forecast_burst_rate_uncertainty,
@@ -757,6 +775,7 @@ def main():
                 "adaptive_wake_relief_threshold": adaptive_wake_relief_threshold,
                 "forecast_lead_time_s": as_seconds(forecast_lead_time),
                 "min_forecast_lead_time_s": as_seconds(min_forecast_lead_time),
+                "forecast_min_burst_extra_load_mbps": forecast_min_burst_extra_load,
                 "forecast_burst_rate_error": forecast_burst_rate_error,
                 "forecast_burst_rate_uncertainty": forecast_burst_rate_uncertainty,
                 "selective_forecast_burst_rate_uncertainty": (

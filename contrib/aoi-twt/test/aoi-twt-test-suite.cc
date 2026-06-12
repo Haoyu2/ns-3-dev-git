@@ -1,3 +1,5 @@
+#include "ns3/boolean.h"
+#include "ns3/double.h"
 #include "ns3/object-factory.h"
 #include "ns3/test.h"
 #include "ns3/twt-schedule.h"
@@ -122,10 +124,12 @@ class TwtSchedulerFeasibilityTestCase : public TestCase
      * Constructor.
      * @param schedulerTypeId TypeId name of the scheduler under test.
      * @param name Test case name.
+     * @param dyadic Configure dyadic reservations (analysis variant).
      */
-    TwtSchedulerFeasibilityTestCase(std::string schedulerTypeId, std::string name)
+    TwtSchedulerFeasibilityTestCase(std::string schedulerTypeId, std::string name, bool dyadic)
         : TestCase(name),
-          m_schedulerTypeId(schedulerTypeId)
+          m_schedulerTypeId(schedulerTypeId),
+          m_dyadic(dyadic)
     {
     }
 
@@ -133,6 +137,11 @@ class TwtSchedulerFeasibilityTestCase : public TestCase
     void DoRun() override
     {
         ObjectFactory factory(m_schedulerTypeId);
+        if (m_dyadic)
+        {
+            factory.Set("DyadicReservations", BooleanValue(true));
+            factory.Set("DensityTarget", DoubleValue(0.25));
+        }
         Ptr<TwtScheduler> scheduler = factory.Create<TwtScheduler>();
 
         std::vector<TwtStationInfo> stations;
@@ -180,6 +189,7 @@ class TwtSchedulerFeasibilityTestCase : public TestCase
     }
 
     std::string m_schedulerTypeId; ///< TypeId name of the scheduler under test
+    bool m_dyadic;                 ///< configure the dyadic-reservation variant
 };
 
 /**
@@ -195,11 +205,18 @@ class AoiTwtTestSuite : public TestSuite
         AddTestCase(new TwtAoiModelTestCase, TestCase::Duration::QUICK);
         AddTestCase(new TwtSchedulerFeasibilityTestCase(
                         "ns3::EqualIntervalTwtScheduler",
-                        "EqualIntervalTwtScheduler feasibility"),
+                        "EqualIntervalTwtScheduler feasibility",
+                        false),
                     TestCase::Duration::QUICK);
         AddTestCase(new TwtSchedulerFeasibilityTestCase(
                         "ns3::HarmonicGreedyTwtScheduler",
-                        "HarmonicGreedyTwtScheduler feasibility"),
+                        "HarmonicGreedyTwtScheduler feasibility",
+                        false),
+                    TestCase::Duration::QUICK);
+        AddTestCase(new TwtSchedulerFeasibilityTestCase(
+                        "ns3::HarmonicGreedyTwtScheduler",
+                        "HarmonicGreedyTwtScheduler dyadic-reservation feasibility",
+                        true),
                     TestCase::Duration::QUICK);
     }
 };

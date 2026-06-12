@@ -109,8 +109,9 @@ class HarmonicGreedyTwtScheduler : public TwtScheduler
                                       const std::vector<double>& durations,
                                       const std::vector<double>& sqrtCoeffs) const;
 
-    double m_densityTarget{0.9}; ///< Max schedule density before rounding
-    uint32_t m_maxAttempts{8};   ///< Max attempts per SP considered
+    double m_densityTarget{0.9};      ///< Max schedule density before rounding
+    uint32_t m_maxAttempts{8};        ///< Max attempts per SP considered
+    bool m_dyadicReservations{false}; ///< Pack via SF-BF over dyadic reservations
 };
 
 } // namespace ns3

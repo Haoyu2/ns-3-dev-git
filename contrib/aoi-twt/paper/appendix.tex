@@ -1,0 +1,191 @@
+% Full proofs appendix -- included when \TECHREPORT is defined (make techreport)
+\appendix
+
+\subsection{Proofs for the packing analysis}
+
+Fix a unit $u > 0$ with $t_0 = 2^L u$. A \emph{block of size} $s = 2^k u$ is
+an interval $[rs, (r{+}1)s)$, $r \in \mathbb{N}$ (aligned). Periods are
+$T_i = t_0 2^{j_i}$ (level $j_i$, window $W_j = t_0 2^j$); reservations are
+$d'_i = 2^{k_i} u \le t_0$; $U = \sum_i d'_i / T_i$. SF-BF processes levels
+in increasing order, duplicating the free set at each level transition
+(valid: everything placed so far is $W_j$-periodic), and serves each
+request from a minimum-size sufficient free block, carving from the left.
+
+\begin{lemma}[staircase carving]
+\label{app:staircase}
+Carving a request $q$ from the left end of a block $B = [b, b+s)$,
+$q \le s$, leaves $[b+q, b+s)$, which is the disjoint union of exactly one
+aligned block of each size $q, 2q, \dots, s/2$ (empty if $q = s$).
+\end{lemma}
+
+\begin{proof}
+With $s = 2^M q$, define $I_l = [b + 2^l q,\, b + 2^{l+1} q)$ for
+$l = 0, \dots, M{-}1$. These are disjoint with union $[b+q, b+s)$, and
+$I_l$ has size $2^l q$ and left endpoint $b + 2^l q$, a multiple of
+$2^l q$ since $b$ is a multiple of $s \ge 2^{l+1} q$.
+\end{proof}
+
+\begin{lemma}[count invariant]
+\label{app:counts}
+(i) A successful SF-BF allocation creates new free blocks only at sizes
+whose current count is $0$. (ii) At the start of level-$j$ processing,
+every size has count at most $2^j$. Both bounds are tight.
+\end{lemma}
+
+\begin{proof}
+(i) Let $q$ be the request and $b$ the minimum size of a free block with
+$b \ge q$. The staircase sizes of Lemma~\ref{app:staircase} lie in
+$[q, b)$; by minimality of $b$ no free block has size in $[q, b)$, so each
+created size moves from count $0$ to $1$. (ii) Induction: level $0$ starts
+from the single block $[0, t_0)$; by (i) the maximum count never increases
+during a level; the transition duplicates the free set, doubling counts.
+Tightness of (ii): when intermediate levels carry no requests, doubling
+compounds unimpeded (verified constructively).
+\end{proof}
+
+\begin{lemma}[failure bound]
+\label{app:failure}
+If a level-$j$ request $q$ fails, the free measure satisfies
+$|F| < 2^j q$.
+\end{lemma}
+
+\begin{proof}
+All free blocks have size $\le q/2$; distinct sizes are
+$q/2, q/4, \dots, u$, each with count $\le 2^j$
+(Lemma~\ref{app:counts}), so $|F| \le 2^j (q - u) < 2^j q$.
+\end{proof}
+
+\begin{proof}[Proof of the packing threshold (Lemma~5 in the paper)]
+Suppose a request $q = d'_i$ at level $j$ fails. The occupied measure
+within $[0, W_j)$ is $W_j$ times the density of the stations placed so
+far, at most $W_j U$, so $|F| \ge W_j (1 - U) = 2^j t_0 (1 - U) \ge 2^j q$
+by hypothesis, contradicting Lemma~\ref{app:failure}. For the converse,
+generalize Proposition~2: let level-$0$ stations occupy measure
+$(1-\epsilon) t_0$ of the base window with one contiguous free gap of
+length $\epsilon t_0$. A station of level $\ge 1$ must place its
+contiguous SP inside one periodic copy of the gap (it cannot straddle the
+level-$0$ pattern), so $d' \le \epsilon t_0 = t_0 (1 - U_0)$ is necessary,
+where $U_0$ is the lower-level utilization.
+\end{proof}
+
+\subsection{Proofs for the approximation chain}
+
+\begin{proof}[Proof of Theorem~1 (8-approximation)]
+\emph{Lower bound:} any feasible schedule has disjoint SPs, hence density
+$\le 1$ and $T_i \ge \tmin_i$, so $\mathrm{OPT} - C \ge J^*$ where $J^*$
+solves \eqref{eq:relax} (with the $\dmax$ constraint dropped; it is also
+valid by Lemma~2). \emph{Density scaling:} for $\rho \le 1$,
+$T^*(1)/\rho$ is feasible for density target $\rho$ (density scales by
+$\rho$, the floors still hold), so $J(T(\rho)) \le J^*/\rho$. Run the
+relaxation at $\rho^\star = 1/4$. \emph{Rounding:} round each $T_i$ up to
+the grid $t_0 2^j$, $t_0 \le \tmin$ (factor $< 2$ on cost; density only
+decreases); round each $d_i$ up to a dyadic divisor $d'_i$ of $t_0$
+(factor $< 2$, possible since $d_i \le t_0/4 < t_0$). The resulting
+density satisfies $U \le 2 \cdot \tfrac14 = \tfrac12$, and
+$d'_i \le t_0/2 = t_0(1 - \tfrac12) \le t_0 (1 - U)$. \emph{Packing:}
+Lemma~5 places everything; each station transmits only $d_i$ inside its
+reservation, so true duty cycles satisfy
+$d_i / T'_i \le d_i / \tmin_i = \rho_i$ -- reservations cost no energy.
+\emph{Chain:} cost $\le 2 \cdot J(T(1/4)) \le 2 \cdot 4 J^* \le
+8\,(\mathrm{OPT} - C)$.
+\end{proof}
+
+\begin{proof}[Proof of Corollary~1 (candidate-argmin anchor)]
+For $\theta \in [0,1)$ let $t_0(\theta) = \tmin 2^{-\theta}$ and
+$\ell_i(\theta) = 2^{\lceil z \rceil - z}$, $z = y_i + \theta$,
+$y_i = \log_2(T_i/\tmin)$, the per-station rounding factor.
+(a) For $\theta$ uniform, $\mathrm{frac}(z)$ is uniform and
+$\mathbb{E}[2^{\lceil z\rceil - z}] = \int_0^1 2^{1-f} df = 1/\ln 2$;
+by linearity $\mathbb{E}_\theta[C(\theta)] = (1/\ln 2)\sum_i a_i T_i$.
+(b) On any interval free of breakpoints
+($\theta$ with $\mathrm{frac}(y_i + \theta) = 0$ for some $i$), every
+$\mathrm{frac}(y_i+\theta)$ increases without wrapping, so every
+$\ell_i$ -- and hence $C$ -- strictly decreases. As $\theta$ approaches a
+breakpoint from below, the wrapping station's factor tends to $1$, its
+value \emph{at} the breakpoint (an exact power of two rounds to itself),
+so $C$ is left-continuous there and attains its infimum at a breakpoint.
+The breakpoints are $\theta_c = 1 - \mathrm{frac}(y_c)$, i.e.
+$t_0(\theta_c) = T_c/2^{\lceil y_c \rceil}$: exactly the folded
+candidates. (c) $\min_{\mathrm{cand}} C = \min_\theta C \le
+\mathbb{E}_\theta[C]$.
+\end{proof}
+
+\begin{proof}[Proof of Theorem~2 (unconditional)]
+By Lemma~2 the relaxation may include $T_i \ge \dmax$. Set
+$\hat T = 6\,T^{*\prime}$: density $\le 1/6$, every period $\ge 6\dmax$,
+cost $6 J^{*\prime}$. Any folded-candidate anchor satisfies
+$t_0 > \hat T_{\min}/2 \ge 3 \dmax$. Round periods (factor $<2$, or
+$1/\ln 2$ in the candidate-argmin sense) and reservations
+($d_i \le \dmax < t_0/3 < t_0$, factor $< 2$): the density becomes
+$U' \le 2/6 = 1/3$ and $d'_i < 2\dmax < \tfrac23 t_0 \le t_0 (1 - U')$,
+so Lemma~5 packs. Cost $\le 2 \cdot 6\, J^{*\prime} \le 12\,\mathrm{OPT}$.
+Optimality of $s = 6$ for this accounting: the packing condition reads
+$2\dmax \le \tfrac{s}{2}\dmax\,(1 - \tfrac{2}{s})$, i.e. $s \ge 6$.
+\end{proof}
+
+\subsection{Exact solution for $N = 2$}
+
+Write $J = a_1 T_1 + a_2 T_2$, $T_1 \le T_2$, energy floors
+$\tmin_1, \tmin_2$.
+
+\begin{lemma}
+\label{app:rational}
+Any feasible two-station schedule has $T_2/T_1$ rational.
+\end{lemma}
+
+\begin{proof}
+If $T_2/T_1$ is irrational, $\{ j T_2 - k T_1 \}$ is dense in
+$\mathbb{R}$, so some difference of SP start times lies in
+$(-d_1, d_2)$: the SPs overlap.
+\end{proof}
+
+\begin{lemma}
+\label{app:phase}
+Let $T_2/T_1 = p/q$ reduced, $p \ge q \ge 1$. The schedule is feasible iff
+$T_1 \ge q (d_1 + d_2)$.
+\end{lemma}
+
+\begin{proof}
+Since $\gcd(p,q) = 1$, the starts of station~2's SPs modulo $T_1$ form $q$
+equally spaced phases (spacing $T_1/q$). Station~1's contiguous SP cannot
+straddle an SP of station~2, so it must fit in one inter-phase gap of
+length $T_1/q - d_2$: feasibility $\iff T_1/q - d_2 \ge d_1$. Sufficiency:
+place $\phi_1$ in any gap.
+\end{proof}
+
+\begin{theorem}[exact $N{=}2$]
+\label{app:n2}
+With $J(r, q) = (a_1 + a_2 r)\max(\tmin_1,\, \tmin_2/r,\, q(d_1{+}d_2))$,
+the optimum equals
+$\min_{q \le Q}\ \min_{p \in \{\lfloor q r_q^* \rfloor, \lceil q r_q^*
+\rceil\},\, p \ge q} J(p/q, q)$ where
+$r_q^* = \max(1, \tmin_2 / \max(\tmin_1, q(d_1{+}d_2)))$ and
+$Q = \lceil J(\lceil r_1^* \rceil, 1) / ((a_1{+}a_2)(d_1{+}d_2)) \rceil$:
+an $O(Q)$ exact algorithm.
+\end{theorem}
+
+\begin{proof}
+Lemmas~\ref{app:rational}--\ref{app:phase} reduce the problem to
+$\min J(p/q, q)$ over reduced rationals with the stated feasible region
+(for fixed $r$ and $q$, the optimal $T_1$ is the active maximum). For
+fixed $q$, $J(\cdot, q)$ is quasiconvex on $[1, \infty)$: while
+$\tmin_2/r$ is the active maximum, $J = a_1 \tmin_2/r + a_2 \tmin_2$
+strictly decreases; once the maximum is constant in $r$, $J$ strictly
+increases. Hence the integer numerator minimum is attained at one of the
+two grid neighbors of the continuous minimizer $r_q^*$. Finally
+$J(r, q) \ge (a_1 + a_2)\, q (d_1 + d_2)$, so all
+$q > Q$ are dominated by the $q = 1$ candidate defining $Q$.
+(Non-reduced fractions replicate a smaller-$q$ ratio with a tighter
+packing floor and are dominated.) Verified against exhaustive search on
+$4{,}000$ random instances.
+\end{proof}
+
+\begin{remark}
+Non-integer ratios are strictly optimal on an open set of instances:
+with $\tmin_1 = 10$, $\tmin_2 = 15$, $d_1 + d_2 = 1$, the ratio $3/2$
+achieves $10 a_1 + 15 a_2$ with both energy floors tight, while the best
+integer ratios give $15 a_1 + 15 a_2$ ($m{=}1$) or $10 a_1 + 20 a_2$
+($m{=}2$). The harmonic restriction of \textsc{Harmonic-Greedy} thus has
+a real price already at $N = 2$ -- exactly the rounding loss the
+approximation analysis charges for.
+\end{remark}

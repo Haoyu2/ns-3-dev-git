@@ -9,6 +9,8 @@
 
 #include "power-save-manager.h"
 
+#include "ns3/mac48-address.h"
+
 #include <map>
 
 namespace ns3
@@ -25,13 +27,20 @@ namespace ns3
  * DefaultPowerSaveManager, a channel access request outside an SP does not
  * wake the PHY.
  *
+ * In announced mode (default), the STA signals SP boundaries to the AP by
+ * toggling its Power Management bit (a QoS Null with PM=0 at SP start and
+ * PM=1 at SP end), so that the AP delivers frames buffered for the STA
+ * (e.g., ADDBA Responses, downlink data) during the SP using the standard
+ * power-save delivery rules. In unannounced mode the STA silently
+ * wakes/dozes; downlink frames then remain buffered at the AP until it is
+ * made TWT-aware by other means.
+ *
  * Current simplifications (documented for upstreaming):
  * - The TWT agreement is installed programmatically through attributes
  *   rather than negotiated via TWT Setup action frames.
  * - The first SP is anchored to the time of association (plus the
  *   FirstSpOffset attribute) instead of a TSF-based Target Wake Time.
- * - TIM-based downlink delivery is not used while dozing; downlink frames
- *   buffered at the AP are delivered when the STA is awake during an SP.
+ * - TIM-based downlink delivery is not used while dozing.
  * - An SP is not terminated early upon an End Of Service Period indication;
  *   transmissions that overrun the SP complete before the STA dozes.
  */
@@ -96,13 +105,33 @@ class TwtPowerSaveManager : public PowerSaveManager
      */
     void CancelSpEvents(linkId_t linkId);
 
+    /**
+     * Block the transmission of unicast frames to the AP on the given link
+     * until the next SP, so that pending (re)transmissions do not keep the
+     * STA awake past the end of an SP.
+     *
+     * @param linkId the ID of the given link
+     */
+    void BlockTxUntilNextSp(linkId_t linkId);
+
+    /**
+     * Unblock the transmission of unicast frames to the AP on the given link.
+     *
+     * @param linkId the ID of the given link
+     */
+    void UnblockTx(linkId_t linkId);
+
     Time m_wakeInterval;  ///< TWT wake interval (the SP period)
     Time m_wakeDuration;  ///< nominal duration of each SP
-    Time m_firstSpOffset; ///< delay between association and the first SP
+    Time m_firstSpOffset; ///< delay or grid offset of the first SP
+    Time m_anchorTime;    ///< absolute SP grid anchor (negative = anchor at association)
+    bool m_announced;     ///< announce SP boundaries by toggling the PM bit
 
     std::map<linkId_t, EventId> m_spStartEvents; ///< per-link next SP start events
     std::map<linkId_t, EventId> m_spEndEvents;   ///< per-link SP end events
     std::map<linkId_t, bool> m_spOngoing;        ///< per-link flag: inside an SP
+    std::map<linkId_t, bool> m_cycleRunning;     ///< per-link flag: SP cycle scheduled
+    std::map<linkId_t, Mac48Address> m_blockedPeer; ///< per-link peer with blocked queues
 };
 
 } // namespace ns3

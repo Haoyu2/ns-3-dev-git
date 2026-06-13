@@ -19,6 +19,7 @@ NS_LOG_COMPONENT_DEFINE("TwtScheduler");
 NS_OBJECT_ENSURE_REGISTERED(TwtScheduler);
 NS_OBJECT_ENSURE_REGISTERED(EqualIntervalTwtScheduler);
 NS_OBJECT_ENSURE_REGISTERED(HarmonicGreedyTwtScheduler);
+NS_OBJECT_ENSURE_REGISTERED(EnergyGreedyTwtScheduler);
 
 /// Tolerance for treating two SP boundaries as non-overlapping (seconds)
 static constexpr double TIME_EPS = 1e-12;
@@ -106,9 +107,9 @@ HarmonicGreedyTwtScheduler::GetTypeId()
 }
 
 std::vector<double>
-HarmonicGreedyTwtScheduler::AssignPeriods(const std::vector<double>& minPeriods,
-                                          const std::vector<double>& durations,
-                                          const std::vector<double>& sqrtCoeffs) const
+HarmonicGreedyTwtScheduler::ComputeIdealPeriods(const std::vector<double>& minPeriods,
+                                               const std::vector<double>& durations,
+                                               const std::vector<double>& sqrtCoeffs) const
 {
     auto periodsFor = [&](double lambda) {
         std::vector<double> periods(minPeriods.size());
@@ -172,11 +173,16 @@ HarmonicGreedyTwtScheduler::Recompute(const std::vector<TwtStationInfo>& station
     std::vector<double> durations(n);
     std::vector<double> minPeriods(n);
     std::vector<double> sqrtCoeffs(n);
+    std::vector<double> ageCoeffs(n);
     for (size_t i = 0; i < n; ++i)
     {
         const auto& sta = stations[i];
         double airtime = sta.attemptAirtime.GetSeconds();
         double overhead = sta.wakeOverhead.GetSeconds();
+        NS_ABORT_MSG_IF(airtime <= 0, "Station " << sta.id << ": attempt airtime must be > 0");
+        NS_ABORT_MSG_IF(sta.dutyCycleBudget <= 0 || sta.dutyCycleBudget > 1,
+                        "Station " << sta.id << ": duty cycle budget must be in (0, 1]");
+        NS_ABORT_MSG_IF(sta.weight <= 0, "Station " << sta.id << ": weight must be > 0");
         uint32_t k = TwtAoiModel::OptimalAttemptsPerSp(sta.attemptSuccessProb,
                                                        overhead / airtime,
                                                        m_maxAttempts);
@@ -185,12 +191,24 @@ HarmonicGreedyTwtScheduler::Recompute(const std::vector<TwtStationInfo>& station
         durations[i] = k * airtime + overhead;
         minPeriods[i] = durations[i] / sta.dutyCycleBudget;
         double pSucc = TwtAoiModel::SuccessProbPerSp(sta.attemptSuccessProb, k);
-        double ageCoeff = 1.0 / pSucc - 0.5;
-        sqrtCoeffs[i] = durations[i] / (sta.weight * ageCoeff);
+        // weighted age coefficient w_i * a_i of the cost sum w_i a_i T_i
+        ageCoeffs[i] = sta.weight * (1.0 / pSucc - 0.5);
+        sqrtCoeffs[i] = durations[i] / ageCoeffs[i];
     }
 
-    // Step 2: square-root-law period assignment under the density target.
-    std::vector<double> ideal = AssignPeriods(minPeriods, durations, sqrtCoeffs);
+    // Every period must be at least the largest SP duration: a longer SP
+    // necessarily contains a wake-start of a shorter-period station, so the
+    // relaxation floor is max(T_i^min, d_max) (Lemma "long SPs dominate
+    // periods"). Fold d_max into the per-station floor.
+    double dMax = *std::max_element(durations.begin(), durations.end());
+    for (size_t i = 0; i < n; ++i)
+    {
+        minPeriods[i] = std::max(minPeriods[i], dMax);
+    }
+
+    // Step 2: period assignment (square-root law by default; subclasses may
+    // substitute a different policy).
+    std::vector<double> ideal = ComputeIdealPeriods(minPeriods, durations, sqrtCoeffs);
 
     // Step 3: round periods up to a harmonic grid t0 * 2^j. The choice of
     // the grid anchor t0 matters: each ideal period, folded by powers of
@@ -198,11 +216,6 @@ HarmonicGreedyTwtScheduler::Recompute(const std::vector<TwtStationInfo>& station
     // station's rounding lossless); pick the candidate minimizing the
     // weighted AoI estimate of the rounded periods.
     double tmin = *std::min_element(ideal.begin(), ideal.end());
-    std::vector<double> ageCoeffs(n);
-    for (size_t i = 0; i < n; ++i)
-    {
-        ageCoeffs[i] = sqrtCoeffs[i] > 0 ? durations[i] / sqrtCoeffs[i] : 0;
-    }
     auto roundedPeriods = [&](double t0) {
         std::vector<double> periods(n);
         for (size_t i = 0; i < n; ++i)
@@ -432,6 +445,47 @@ HarmonicGreedyTwtScheduler::Recompute(const std::vector<TwtStationInfo>& station
         }
     }
     return entries;
+}
+
+TypeId
+EnergyGreedyTwtScheduler::GetTypeId()
+{
+    static TypeId tid = TypeId("ns3::EnergyGreedyTwtScheduler")
+                            .SetParent<HarmonicGreedyTwtScheduler>()
+                            .SetGroupName("AoiTwt")
+                            .AddConstructor<EnergyGreedyTwtScheduler>();
+    return tid;
+}
+
+std::vector<double>
+EnergyGreedyTwtScheduler::ComputeIdealPeriods(const std::vector<double>& minPeriods,
+                                             const std::vector<double>& durations,
+                                             const std::vector<double>& sqrtCoeffs) const
+{
+    // Energy-greedy: start from the most aggressive (shortest) period each
+    // duty-cycle budget allows, then -- if the schedule is overbooked --
+    // stretch every period by a common factor to meet the density target.
+    // Unlike the base class, the stretch is AoI-weight-unaware (uniform),
+    // which is exactly the ingredient this baseline lacks.
+    (void)sqrtCoeffs;
+    std::vector<double> periods = minPeriods;
+    double density = 0.0;
+    for (size_t i = 0; i < periods.size(); ++i)
+    {
+        density += durations[i] / periods[i];
+    }
+    // Stretch only enough to be just feasible (density 1); the downstream
+    // harmonic rounding provides any remaining slack. Stretching all the way
+    // to the density target would discard the aggressive short periods that
+    // make this baseline strong on a uniform channel.
+    if (density > 1.0)
+    {
+        for (double& T : periods)
+        {
+            T *= density;
+        }
+    }
+    return periods;
 }
 
 } // namespace ns3

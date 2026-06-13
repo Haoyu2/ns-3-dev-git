@@ -94,24 +94,56 @@ class HarmonicGreedyTwtScheduler : public TwtScheduler
     std::vector<TwtScheduleEntry> Recompute(
         const std::vector<TwtStationInfo>& stations) override;
 
-  private:
+  protected:
     /**
-     * Find lambda such that the density sum_i d_i / T_i(lambda) is at most
-     * the target, by bisection on the monotone density function.
+     * Compute the ideal (unrounded) per-station periods that the rounding
+     * and packing stages operate on. The base class uses the AoI-weighted
+     * square-root-law relaxation; subclasses may override to obtain a
+     * different period-assignment policy while reusing the shared rounding,
+     * packing and safeguard machinery.
      *
-     * @param minPeriods Per-station energy-tight minimum periods (seconds).
+     * @param minPeriods Per-station floors max(d_i / rho_i, d_max) (seconds).
      * @param durations Per-station SP durations (seconds).
      * @param sqrtCoeffs Per-station coefficients d_i / (w_i a_i) of the
      *                   square-root law.
      * @return Per-station ideal (unrounded) periods in seconds.
      */
-    std::vector<double> AssignPeriods(const std::vector<double>& minPeriods,
-                                      const std::vector<double>& durations,
-                                      const std::vector<double>& sqrtCoeffs) const;
+    virtual std::vector<double> ComputeIdealPeriods(
+        const std::vector<double>& minPeriods,
+        const std::vector<double>& durations,
+        const std::vector<double>& sqrtCoeffs) const;
 
     double m_densityTarget{0.9};      ///< Max schedule density before rounding
     uint32_t m_maxAttempts{8};        ///< Max attempts per SP considered
     bool m_dyadicReservations{false}; ///< Pack via SF-BF over dyadic reservations
+};
+
+/**
+ * @ingroup aoi-twt
+ *
+ * Energy-first greedy scheduler, our rendering of a TASPER-style heuristic
+ * (max energy efficiency with AoI as a soft constraint). Each station is
+ * given its most energy-efficient period (the longest one its duty-cycle
+ * budget allows, T_i = max(d_i / rho_i, d_max)); the shared harmonic
+ * rounding, greedy packing and best-of-uniform safeguard then make the
+ * schedule feasible. It differs from HarmonicGreedyTwtScheduler only in
+ * lacking the AoI-weighted period assignment, so any AoI gain of the latter
+ * is attributable to that step alone. Used as an evaluation baseline.
+ */
+class EnergyGreedyTwtScheduler : public HarmonicGreedyTwtScheduler
+{
+  public:
+    /**
+     * Register this type.
+     * @return The object TypeId.
+     */
+    static TypeId GetTypeId();
+
+  protected:
+    std::vector<double> ComputeIdealPeriods(
+        const std::vector<double>& minPeriods,
+        const std::vector<double>& durations,
+        const std::vector<double>& sqrtCoeffs) const override;
 };
 
 } // namespace ns3

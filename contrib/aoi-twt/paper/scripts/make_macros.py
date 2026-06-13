@@ -59,15 +59,21 @@ def main():
 
         for reg, prefix in [("skew", "Skew"), ("fadingskew", "FadingSkew"),
                             ("loose", "Loose"), ("tight", "Tight"),
-                            ("fading", "Fading")]:
+                            ("fading", "Fading"), ("ubind", "Ubind"),
+                            ("ubindfade", "Ubindfade")]:
             e = get(reg, "EqualInterval")
+            g = get(reg, "EnergyGreedy")
             h = get(reg, "HarmonicGreedy")
             macro(f"Res{prefix}Equal", e[0])
             macro(f"Res{prefix}EqualCI", e[1], 2)
+            macro(f"Res{prefix}Energy", g[0])
+            macro(f"Res{prefix}EnergyCI", g[1], 2)
             macro(f"Res{prefix}Harmonic", h[0])
             macro(f"Res{prefix}HarmonicCI", h[1], 2)
             if e[0] > 0:
                 macro(f"Res{prefix}Gain", 100 * (e[0] - h[0]) / e[0])
+            if g[0] > 0:  # gain over the STRONG baseline (isolates AoI-weighting)
+                macro(f"Res{prefix}GainE", 100 * (g[0] - h[0]) / g[0])
             macro(f"Res{prefix}PeakEqual", e[2])
             macro(f"Res{prefix}PeakHarmonic", h[2])
     print(f"\nwrote {out}")

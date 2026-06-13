@@ -6,7 +6,7 @@ Usage: python3 make_figs.py <data_dir> <fig_dir>
 """
 
 import csv
-import math
+import os
 import sys
 from collections import defaultdict
 
@@ -14,15 +14,8 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
 
-
-def ci95(vals):
-    n = len(vals)
-    m = sum(vals) / n
-    if n < 2:
-        return m, 0.0
-    var = sum((v - m) ** 2 for v in vals) / (n - 1)
-    t = {1: 12.71, 2: 4.30, 3: 3.18, 4: 2.78, 9: 2.26}.get(n - 1, 1.96)
-    return m, t * math.sqrt(var / n)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from make_macros import ci as ci95  # noqa: E402  (single source of CI math)
 
 
 def fig_validation(data_dir, fig_dir):
@@ -60,17 +53,18 @@ def fig_regimes(data_dir, fig_dir):
                 continue
             data[row["regime"]][row["scheduler"]].append(float(row["aoi_ms"]))
 
-    regimes = ["loose", "tight", "skew", "fading", "fadingskew"]
-    labels = ["loose", "tight", "tight\n+skew", "tight\n+fading",
-              "tight+fading\n+skew"]
+    regimes = ["skew", "fadingskew", "ubind", "ubindfade"]
+    labels = ["het-budget\nskew", "het-budget\nfade+skew",
+              "uniform\nskew", "uniform\nfade+skew"]
     x = range(len(regimes))
-    width = 0.38
-    fig, ax = plt.subplots(figsize=(4.2, 3.0))
+    width = 0.27
+    fig, ax = plt.subplots(figsize=(4.6, 3.0))
     for off, (sched, color, label) in enumerate(
             [("EqualInterval", "tab:gray", "Equal-interval"),
+             ("EnergyGreedy", "tab:orange", "Energy-greedy"),
              ("HarmonicGreedy", "tab:blue", "Harmonic-Greedy")]):
         ms = [ci95(data[r][sched]) for r in regimes]
-        ax.bar([i + (off - 0.5) * width for i in x], [m for m, _ in ms],
+        ax.bar([i + (off - 1) * width for i in x], [m for m, _ in ms],
                width, yerr=[h for _, h in ms], color=color, label=label,
                capsize=2)
     ax.set_xticks(list(x))
@@ -94,7 +88,10 @@ def fig_scaling(data_dir, fig_dir):
     fig, ax = plt.subplots(figsize=(4.2, 3.0))
     for sched, style, color, label in [
             ("EqualInterval", "o--", "tab:gray", "Equal-interval"),
+            ("EnergyGreedy", "^:", "tab:orange", "Energy-greedy"),
             ("HarmonicGreedy", "s-", "tab:blue", "Harmonic-Greedy")]:
+        if sched not in data:
+            continue
         ns = sorted(data[sched])
         ms = [ci95(data[sched][n]) for n in ns]
         ax.errorbar(ns, [m for m, _ in ms], yerr=[h for _, h in ms],
@@ -109,9 +106,45 @@ def fig_scaling(data_dir, fig_dir):
     print("wrote scaling.pdf")
 
 
+def fig_mixedmcs(data_dir, fig_dir):
+    """Grouped-bar comparison under heterogeneous modulation rates."""
+    path = f"{data_dir}/mixedmcs.csv"
+    if not os.path.exists(path):
+        print("skip mixedmcs (no data)")
+        return
+    data = defaultdict(lambda: defaultdict(list))  # sched -> n -> [aoi]
+    with open(path) as f:
+        for row in csv.DictReader(f):
+            if row.get("aoi_ms") in ("None", "", None):
+                continue
+            data[row["scheduler"]][int(row["n"])].append(float(row["aoi_ms"]))
+
+    ns = sorted({n for s in data for n in data[s]})
+    x = range(len(ns))
+    width = 0.27
+    fig, ax = plt.subplots(figsize=(4.2, 3.0))
+    for off, (sched, color, label) in enumerate(
+            [("EqualInterval", "tab:gray", "Equal-interval"),
+             ("EnergyGreedy", "tab:orange", "Energy-greedy"),
+             ("HarmonicGreedy", "tab:blue", "Harmonic-Greedy")]):
+        ms = [ci95(data[sched][n]) for n in ns]
+        ax.bar([i + (off - 1) * width for i in x], [m for m, _ in ms],
+               width, yerr=[h for _, h in ms], color=color, label=label,
+               capsize=2)
+    ax.set_xticks(list(x))
+    ax.set_xticklabels([f"$N={n}$" for n in ns])
+    ax.set_ylabel("weighted mean AoI [ms]")
+    ax.legend(frameon=False)
+    ax.grid(axis="y", alpha=0.3)
+    fig.tight_layout()
+    fig.savefig(f"{fig_dir}/mixedmcs.pdf")
+    print("wrote mixedmcs.pdf")
+
+
 if __name__ == "__main__":
     data_dir = sys.argv[1] if len(sys.argv) > 1 else "."
     fig_dir = sys.argv[2] if len(sys.argv) > 2 else "figures"
     fig_validation(data_dir, fig_dir)
     fig_regimes(data_dir, fig_dir)
     fig_scaling(data_dir, fig_dir)
+    fig_mixedmcs(data_dir, fig_dir)

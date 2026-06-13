@@ -42,11 +42,16 @@ def main():
         "skew": ["--weightSkew=8", "--budgetScale=2"],
         "fading": ["--fading=1", "--budgetScale=2"],
         "fadingskew": ["--fading=1", "--weightSkew=8", "--budgetScale=2"],
+        # uniform-budget binding-density regimes isolate AoI-weighting:
+        # the energy-greedy baseline collapses to equal-interval there.
+        "ubind": ["--weightSkew=8", "--uniformBudget=0.12"],
+        "ubindfade": ["--fading=1", "--weightSkew=8", "--uniformBudget=0.12"],
     }
     jobs = []
-    # main regimes, 10 seeds
+    # main regimes, 10 seeds: naive baseline, energy-tight greedy baseline,
+    # and our AoI-aware scheduler
     for reg, extra in regimes.items():
-        for s in ["EqualInterval", "HarmonicGreedy"]:
+        for s in ["EqualInterval", "EnergyGreedy", "HarmonicGreedy"]:
             for r in range(1, 11):
                 jobs.append((f"{reg},{s}", sched_args(s) + extra, r))
     # analyzed (dyadic-reservation) variant on the two skew regimes

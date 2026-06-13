@@ -197,6 +197,80 @@ real TWT mechanism):**
    harmonic schedule also uses LESS energy (duty 0.075 vs 0.080):
    Pareto-dominant, not a trade.
 
+## 2b. STRONG-BASELINE FINDING (2026-06-12) — what AoI-weighting actually buys
+
+Added EnergyGreedyTwtScheduler: a credible TASPER-style heuristic that gives
+each station its most aggressive (shortest) budget-feasible period
+T_i = max(d_i/rho_i, d_max), uniformly stretches to just-feasible density 1
+if overbooked, then reuses our harmonic rounding + greedy packing + uniform
+safeguard. It differs from HarmonicGreedy ONLY in lacking the AoI-weighted
+sqrt-law period assignment.
+
+KEY (uncomfortable but important) FINDING: against this STRONG baseline, our
+method does NOT win in the originally-reported heterogeneous-budget regimes
+(single-seed 60-80s):
+- skew p=1, budgetScale=2: Energy 19.11, Harmonic 18.82 (~tie; both beat
+  equal-interval 20.90)
+- fading+skew, budgetScale=2: Energy 44.19, Harmonic 45.04 (Energy slightly
+  AHEAD)
+Reason: when per-station ENERGY FLOORS (T_i >= d_i/rho_i) already pin the
+periods, "minimize all periods then pack" is near-AoI-optimal; the sqrt-law
+adds little. Our earlier 10-12% "wins" were vs the NAIVE equal-interval
+baseline, and much of that gain is just PERIOD DIVERSITY, which EnergyGreedy
+also achieves -- NOT AoI-weighting per se.
+
+THE REGIME THAT ISOLATES AoI-WEIGHTING (uniform budgets -> EnergyGreedy
+collapses to equal-interval, since uniform rho gives uniform energy-tight
+periods; only the sqrt-law redistributes the binding schedule density toward
+high-weight / lossy stations):
+- uniformBudget=0.12 (density 1.2, binding), skew, p=1: Equal=Energy 17.15,
+  Harmonic 16.04 -> 6.5% win, AoI-weighting the SOLE differentiator.
+- uniformBudget=0.12, fading+skew: Equal=Energy 41.50, Harmonic 39.44 ->
+  5% win (channel-aware via a_i = w_i(1/p_i - 1/2)).
+- non-binding (density<=0.9) or over-binding (>=1.6 capacity floor): all tie
+  (no slack to redistribute, resp. everyone pinned at floor). Correct.
+
+IMPLICATION FOR THE PAPER (honest reframing, STRONGER not weaker):
+1. Report THREE schedulers: equal-interval (naive), EnergyGreedy (strong
+   period-diverse heuristic), Harmonic-Greedy (ours).
+2. The headline isolating experiment becomes uniform-budget binding-density:
+   ONLY Harmonic-Greedy beats both baselines, by ~5-6.5%, exactly where the
+   theory says AoI-weighting matters.
+3. In heterogeneous-budget regimes, state plainly that EnergyGreedy ties us
+   (energy floors pin periods) -- this is a precise characterization, the
+   kind reviewers reward, and it is backed by the lower-bound column
+   (both Energy and Harmonic sit near LB there).
+4. Re-examine the 36% mixed-MCS claim: heterogeneous SP sizes make periods
+   diverse, so EnergyGreedy likely captures most of it too -> that win is
+   PERIOD DIVERSITY, must be re-attributed (pending EnergyGreedy mixed-MCS
+   run). Do NOT claim it as an AoI-weighting win.
+
+RESOLVED (2026-06-12): mixed-MCS DECOMPOSES cleanly (single-seed):
+N=50: equal 38.54 -> EnergyGreedy 29.52 (period diversity, +23%) ->
+HarmonicGreedy 24.61 (AoI-weighting, +17% more, +36% total). N=20:
+16.79 -> 13.28 -> 11.22. So we beat the STRONG baseline by 15-17% in
+mixed-MCS (binding density + diverse airtimes -> both ingredients active).
+Paper reframed: report all 3 schedulers; uniform-budget binding regime is
+the clean AoI-weighting isolator (5-6.5% over both baselines); mixed-MCS is
+the decomposition (period diversity + AoI-weighting both contribute, we win
+outright); het-budget regimes honestly stated as ties with EnergyGreedy
+(energy floors pin periods). LB delta lowered to 2ms (provable lower bound:
+generation is 2ms before SP) so LB <= measured in every regime. Full
+3-scheduler + ubind + ubindfade sweep running on frcc (sweep2). This makes
+the paper MORE rigorous: precise attribution + a strong baseline that ties
+us elsewhere is the kind of self-critical evaluation reviewers reward.
+
+FINAL FULL-SWEEP NUMBERS (10 seeds, frcc sweep3, folded into paper):
+- het.budget skew: Equal 20.9 / Energy 19.1 / H-G 18.8 / LB 15.8 (Energy ~ H-G)
+- het.budget fade+skew: 51.3 / 45.1 / 44.7 / 35.7 (tie)
+- UNIF budget skew: Equal 17.2 = Energy 17.2 / H-G 16.0 / LB 15.2 (6.5%, isolated)
+- UNIF budget fade+skew: 41.6 = 41.6 / 39.8 / 35.9 (4.3%, channel-aware)
+- mixed-MCS N=50: 38.5 -> 29.5 (Energy +23% diversity) -> 24.6 (H-G +36%)
+Uniform-budget rows: Energy ≡ Equal EXACTLY (17.15=17.15, 41.59=41.59) — cleanest
+possible demo that AoI-weighting is the sole differentiator there. Paper rebuilt:
+6pp conf / 7pp techreport, 0 err / 0 overfull, all 3 schedulers in Figs 5/6/7,
+Table II het/unif split. THIS REVISION IS UNCOMMITTED (user commits).
+
 ## 3. Multi-station structure (the real problem)
 
 Decision: {(T_i, phi_i, d_i)}_{i=1..N} such that SPs do not overlap (or share with

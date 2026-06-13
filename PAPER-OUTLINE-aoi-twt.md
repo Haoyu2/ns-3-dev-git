@@ -112,6 +112,12 @@ F7 scaling (N on x-axis).
       F4 (pipeline) intentionally covered by Algorithm 1 pseudocode.
       Data: valgrid.csv, scaling.csv (frcc); plots via scripts/make_figs.py.
 - [ ] De-anonymize / author block before submission (user action).
+- [ ] Tech debt (post-submission, from code review): consolidate the
+      duplicated AoiTracker / error models across the two scratches into
+      contrib/aoi-twt/model (they have diverged into supersets; touching
+      them now would require re-validating all results); optional scratch
+      hot-path cleanups (PhyStateTrace stoul, per-frame packet Copy in
+      SpFadingErrorModel).
 - [x] Full proofs appendix (appendix.tex; `make techreport` -> 7pp version).
 - [x] Mixed-MCS experiment: HeMcs0/HeMcs7 alternating, 700B payload —
       33% gain at N=20 (11.2 vs 16.8 ms), 36% at N=50 (24.6 vs 38.6 ms),
@@ -120,6 +126,87 @@ F7 scaling (N on x-axis).
       O(Q) exact algorithm; non-integer ratios strictly optimal sometimes
       (verified vs exhaustive search, 4000 instances). In paper Sec. VII +
       appendix. T2 scoped as journal work (notes).
+
+## External review processed (2026-06-12)
+
+Verdict received: strong 6.5/10 now, 8/10 after fixes; publishable. Venue
+guidance: MSWiM 2026 strongest fit (modeling/simulation/WLAN/energy lane;
+deadlines reg Jun 14 / sub Jun 23), WCNC 2027 alternative (needs comms
+framing, deadline Jul 1), MobiQuitous 2026 weaker fit + 2-day deadline.
+Plan: target MSWiM 2026, not MobiQuitous.
+
+Findings actioned:
+- [P1 theorem vs implementation] DONE: rewrote the "practice vs analysis"
+  paragraph into "Certified vs. practical variant" making the split explicit
+  (certified=dyadic rho*=1/4 is what the theorems bound; practical rho*=0.9
+  is what we report); tightening the analyzed budget is flagged as open.
+- [P1 baseline-light] DONE (analytical near-optimality): added
+  scripts/lower_bound.py computing the relaxation lower bound per regime
+  (valid LB on any feasible schedule, hence on any heuristic incl. TASPER);
+  new LB column in Table II + a "Near-optimality" paragraph (H-G is 5.6%
+  above LB in skew vs 17% for equal-interval; 18% vs 36% in fading+skew).
+  STILL OPEN: an actual TASPER-style heuristic implementation as a second
+  empirical baseline (the LB is the rigorous stand-in for now).
+- [P1 mixed-MCS artifact] DONE: removed stray `done50` sentinel from
+  mixedmcs.csv; added clean mixed-MCS jobs to fig_data_sweep.py (no
+  sentinels); added fig_mixedmcs() to make_figs.py; embedded Fig. 6 and tied
+  the 33/36% prose to it.
+- [P2 d_max floor mismatch] DONE: scheduler now enforces
+  T_i >= max(Tmin_i, d_max) before water-filling (matches eq:relax /
+  Lemma 1'); regression-checked — results unchanged (duty floors dominate
+  in the studied regimes), tests pass.
+- [P2 scope/limitations] DONE: added a "Scope" paragraph to the system model
+  (uplink-only, generate-at-will, scheduled non-overlap, per-SP fading;
+  random arrivals + downlink flagged as extensions).
+
+Conference draft now 6pp, tech report 7pp, both 0 errors / 0 overfull.
+
+## Third review + repo/page (2026-06-12)
+
+- TEMPLATE: switched IEEEtran -> ACM acmart (sigconf, nonacm). Real authors
+  added: Haoyu Wang + Bo Sheng (UMass Boston), Zerin Shaima Meem + Xiaoqian
+  Zhang (Univ Nebraska Omaha). Continuous theorem numbering (ACM standard);
+  appendix literal cross-refs converted to \ref. ACM-Reference-Format bib.
+- CLARIFICATIONS expanded: queue gating now describes freezing per-AC EDCA
+  queues via the PS block-reason hook (preserves seqno/retry/BA state);
+  conclusion adds a paragraph on WHY rho*=1/4 is conservative (two serial
+  factor-2 losses) + suggests amortized packing analysis as next step.
+- REFERENCES: 11 -> 35, all real/verified. Expanded Related Work into 5
+  thematic paragraphs (AoI foundations, AoI scheduling/Whittle, energy AoI,
+  TWT+Wi-Fi 7/802.11be, periodic real-time/pinwheel scheduling). TASPER
+  updated to its published IEEE TMC 2026 version.
+- ARTIFACT REPO + PAGE: new public repo github.com/Haoyu2/age-optimal-twt
+  (ns-3 module + src/wifi patch + scratch + scripts + both PDFs + primer),
+  live GitHub Pages at https://haoyu2.github.io/age-optimal-twt/ (academic
+  landing page). Link added to paper (Sec VIII footnote). All Pages assets
+  verified 200. Conf 7pp / techreport 8pp.
+- NOTE: chose PUBLIC + non-anonymous (real names in paper). If MSWiM turns
+  out double-blind, make repo private (`gh repo edit Haoyu2/age-optimal-twt
+  --visibility private`) and anonymize page/paper.
+- camera-ready TODOs: verify TASPER vol/pages; verify twtsurvey25 author
+  list/volume; confirm BibTeX venue once accepted.
+
+## Second review processed (2026-06-12, pre-MSWiM)
+
+Reviewer: strongly positive, best-paper-track; 4 substantive + 2 formatting +
+artifact question. All actioned:
+- [1 certified/practical gap] DONE: added the *why* — rho*=1/4 absorbs two
+  serial factor-2 losses (dyadic duration rounding doubles density; packing
+  needs U<=1/2), explained in the certified-vs-practical paragraph.
+- [2 queue-gating mechanism] DONE: one sentence — we BLOCK the MAC transmit
+  queues at SP end (existing power-save block), not drop frames; updates wait
+  and tx at next SP.
+- [3 octave quantization example] DONE: concrete example at introduction
+  (ideal periods 30 & 50 ms, ratio 1.67<2, round to same grid level).
+- [4 N=2 theorem] DONE: dropped "informal", added the quasiconvex cost
+  J(r,q)=(a1+a2 r)max(...) and an explicit "Full proof: appendix" pointer.
+- [5 artifact/open-source Q] DONE: footnote in Sec VIII — module + scheduler
+  + scripts released as open source for artifact eval (anonymized).
+- [ref 7 TASPER] DONE: now published, updated to IEEE Trans. Mobile Computing
+  2026 (vol 25/3, pp 3469-3487; flagged to verify vol/pages at camera-ready).
+- [ref 8 Rajendran] checked — still arXiv preprint, left as-is.
+- [variable spacing] checked $4/\ln 2$ etc. render fine; no change needed.
+Conf 6pp / techreport 8pp, clean. UNCOMMITTED.
 
 ## LaTeX status (2026-06-11)
 contrib/aoi-twt/paper/: main.tex (4pp draft, compiles 0 errors/0 warnings,

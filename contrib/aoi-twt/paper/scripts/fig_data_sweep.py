@@ -28,10 +28,12 @@ def run_validation(e, rng):
     return (e, rng, int(meas.group(1)), int(pred.group(1)))
 
 
-def run_scaling(n, sched, rng):
+def run_scaling(n, sched, rng, mixed=False):
     cmd = [MULTI_BIN, "--simTime=200", f"--nStations={n}",
            f"--scheduler=ns3::{sched}TwtScheduler",
            "--weightSkew=8", "--budgetScale=2", f"--RngRun={rng}"]
+    if mixed:
+        cmd += ["--mixedMcs=1", "--payload=700"]
     out = subprocess.run(cmd, capture_output=True, text=True, env=ENV,
                          timeout=3600).stdout
     m = re.search(r"SUMMARY aoi_ms=([\d.]+) peak_ms=([\d.]+) duty=([\d.]+)", out)
@@ -46,10 +48,14 @@ def main():
     scale_jobs = [(n, s, r) for n in [10, 20, 30, 40, 50]
                   for s in ["EqualInterval", "HarmonicGreedy"]
                   for r in range(1, 4)]
+    mixed_jobs = [(n, s, r, True) for n in [20, 50]
+                  for s in ["EqualInterval", "EnergyGreedy", "HarmonicGreedy"]
+                  for r in range(1, 4)]
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=28) as ex:
         vfuts = [ex.submit(run_validation, *j) for j in val_jobs]
         sfuts = [ex.submit(run_scaling, *j) for j in scale_jobs]
+        mfuts = [ex.submit(run_scaling, *j) for j in mixed_jobs]
         with open("valgrid.csv", "w") as f:
             f.write("e,run,measured_ms,predicted_ms\n")
             for fut in concurrent.futures.as_completed(vfuts):
@@ -59,6 +65,12 @@ def main():
         with open("scaling.csv", "w") as f:
             f.write("n,scheduler,run,aoi_ms,peak_ms,duty\n")
             for fut in concurrent.futures.as_completed(sfuts):
+                n, s, r, a, p, d = fut.result()
+                f.write(f"{n},{s},{r},{a},{p},{d}\n")
+                f.flush()
+        with open("mixedmcs.csv", "w") as f:
+            f.write("n,scheduler,run,aoi_ms,peak_ms,duty\n")
+            for fut in concurrent.futures.as_completed(mfuts):
                 n, s, r, a, p, d = fut.result()
                 f.write(f"{n},{s},{r},{a},{p},{d}\n")
                 f.flush()

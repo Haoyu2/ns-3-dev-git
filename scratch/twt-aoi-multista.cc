@@ -242,6 +242,7 @@ main(int argc, char* argv[])
     bool fading = false;
     bool staticSetup = true;
     bool dyadic = false;
+    double uniformBudget = 0;
     bool mixedMcs = false;
 
     CommandLine cmd(__FILE__);
@@ -251,6 +252,11 @@ main(int argc, char* argv[])
     cmd.AddValue("scheduler", "TypeId of the TWT scheduler to use", schedulerType);
     cmd.AddValue("announced", "Announce SP boundaries by PM bit toggling", announced);
     cmd.AddValue("budgetScale", "Scale factor on all duty cycle budgets", budgetScale);
+    cmd.AddValue("uniformBudget",
+                 "If > 0, give every station this exact duty-cycle budget "
+                 "(overrides budgetScale); isolates AoI-weighting from budget "
+                 "heterogeneity",
+                 uniformBudget);
     cmd.AddValue("weightSkew",
                  "If > 0, alternate AoI weights between 1 and this value "
                  "(0 = mild default weights 1..3)",
@@ -281,7 +287,8 @@ main(int argc, char* argv[])
         TwtStationInfo sta;
         sta.id = i;
         sta.weight = weightSkew > 0 ? ((i % 2) ? weightSkew : 1.0) : 1.0 + (i % 3);
-        sta.dutyCycleBudget = budgetScale * (0.04 + 0.01 * (i % 4));
+        sta.dutyCycleBudget =
+            uniformBudget > 0 ? uniformBudget : budgetScale * (0.04 + 0.01 * (i % 4));
         // under block fading all in-SP attempts share the SP verdict, so the
         // per-SP success probability equals 1 - lossRate independent of the
         // number of attempts
@@ -306,13 +313,15 @@ main(int argc, char* argv[])
 
     // --- Compute the TWT schedule ---
     ObjectFactory factory(schedulerType);
-    if (fading && schedulerType.find("HarmonicGreedy") != std::string::npos)
+    // HarmonicGreedy and its EnergyGreedy subclass share these attributes.
+    bool isGreedy = schedulerType.find("Greedy") != std::string::npos;
+    if (fading && isGreedy)
     {
         // block fading: batching attempts within an SP cannot raise the SP
         // success probability
         factory.Set("MaxAttemptsPerSp", UintegerValue(1));
     }
-    if (dyadic && schedulerType.find("HarmonicGreedy") != std::string::npos)
+    if (dyadic && isGreedy)
     {
         factory.Set("DyadicReservations", BooleanValue(true));
         factory.Set("DensityTarget", DoubleValue(0.25));
@@ -325,6 +334,8 @@ main(int argc, char* argv[])
     std::vector<TwtScheduleEntry> schedule(nStations);
     for (const auto& entry : computed)
     {
+        NS_ABORT_MSG_IF(entry.stationId >= nStations,
+                        "Scheduler returned an unknown station id " << entry.stationId);
         schedule[entry.stationId] = entry;
     }
 

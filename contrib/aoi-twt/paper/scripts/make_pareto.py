@@ -5,13 +5,16 @@ Usage: python3 make_pareto.py results.csv figures/pareto.pdf
 """
 
 import csv
-import math
+import os
 import sys
 from collections import defaultdict
 
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt  # noqa: E402
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from make_macros import ci  # noqa: E402  (single source of CI math)
 
 
 def main():
@@ -38,12 +41,9 @@ def main():
         budgets = sorted(pts[sched])
         duty = [sum(d for _, d in pts[sched][b]) / len(pts[sched][b])
                 for b in budgets]
-        aoi = [sum(a for a, _ in pts[sched][b]) / len(pts[sched][b])
-               for b in budgets]
-        err = [1.96 * math.sqrt(
-            sum((a - am) ** 2 for a, _ in pts[sched][b]) /
-            max(1, len(pts[sched][b]) - 1) / len(pts[sched][b]))
-            for b, am in zip(budgets, aoi)]
+        stats = [ci([a for a, _ in pts[sched][b]]) for b in budgets]
+        aoi = [m for m, _ in stats]
+        err = [h for _, h in stats]
         ax.errorbar(duty, aoi, yerr=err, fmt=style, color=color, label=label,
                     markersize=4, linewidth=1.2, capsize=2)
     ax.set_xlabel("mean station duty cycle (awake fraction)")

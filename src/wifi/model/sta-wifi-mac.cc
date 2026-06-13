@@ -2063,6 +2063,31 @@ StaWifiMac::SetPowerSaveMode(const std::pair<bool, uint8_t>& enableLinkIdPair)
     if (HasFramesToTransmit(linkId))
     {
         NS_LOG_DEBUG("Next transmitted frame will be sent with PM=" << enable);
+        // This may be a new attempt at switching the PM mode, scheduled (see above) because
+        // a previous attempt did not complete within the PM mode switch timeout. In that
+        // case, the frame that was expected to indicate the PM mode change (e.g., the Data
+        // Null frame enqueued by the previous attempt) may be held by an AC queue with no
+        // pending channel access request: if the transmission of that frame failed and the
+        // PHY was put to sleep upon the channel release notification, channel access was
+        // not requested again to retransmit it. Hence, request channel access (if needed)
+        // for the ACs that hold frames to transmit on this link, so that a frame indicating
+        // the PM mode change is eventually transmitted (the Power Management field of the
+        // transmitted frames is set at transmission time based on the current PM mode).
+        if (GetQosSupported())
+        {
+            for (const auto& [aci, ac] : wifiAcList)
+            {
+                GetQosTxop(aci)->StartAccessAfterEvent(linkId,
+                                                       Txop::HAD_FRAMES_TO_TRANSMIT,
+                                                       Txop::CHECK_MEDIUM_BUSY);
+            }
+        }
+        else
+        {
+            m_txop->StartAccessAfterEvent(linkId,
+                                          Txop::HAD_FRAMES_TO_TRANSMIT,
+                                          Txop::CHECK_MEDIUM_BUSY);
+        }
         return;
     }
 

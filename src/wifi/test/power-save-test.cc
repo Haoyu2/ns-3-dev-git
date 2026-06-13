@@ -3223,6 +3223,280 @@ WifiPsModeAttributesTest::DoRun()
  * @ingroup wifi-test
  * @ingroup tests
  *
+ * @brief Power Save Manager that puts the PHY in sleep state upon channel release
+ *
+ * This Power Save Manager exercises two behaviors that the PowerSaveManager API explicitly
+ * supports: it puts the PHY in sleep state as soon as the channel is released (unless the
+ * STA is in active mode) and it resumes the PHY from sleep state when channel access is
+ * requested. It does not schedule any wake up event on its own (e.g., to receive Beacon
+ * frames), so that tests can verify that MAC procedures do not rely on the PHY being
+ * resumed from sleep state by other means.
+ */
+class DozeOnChannelReleaseManager : public PowerSaveManager
+{
+  public:
+    /**
+     * @brief Get the type ID.
+     * @return the object TypeId
+     */
+    static TypeId GetTypeId()
+    {
+        static TypeId tid = TypeId("ns3::DozeOnChannelReleaseManager")
+                                .SetParent<PowerSaveManager>()
+                                .SetGroupName("Wifi")
+                                .AddConstructor<DozeOnChannelReleaseManager>();
+        return tid;
+    }
+
+    std::optional<Time> m_psCompleted; ///< time when the switch to power save mode completed
+    uint32_t m_dozeCount{0};           ///< number of times the PHY was put in sleep state
+
+  private:
+    void DoNotifyAssocCompleted() override
+    {
+    }
+
+    void DoNotifyDisassociation() override
+    {
+    }
+
+    void DoNotifyPmModeChanged(WifiPowerManagementMode pmMode, linkId_t linkId) override
+    {
+        if (pmMode == WIFI_PM_POWERSAVE && !m_psCompleted)
+        {
+            m_psCompleted = Simulator::Now();
+        }
+    }
+
+    void DoNotifyReceivedBeacon(const MgtBeaconHeader& beacon, linkId_t linkId) override
+    {
+    }
+
+    void DoNotifyReceivedFrameAfterPsPoll(Ptr<const WifiMpdu> mpdu, linkId_t linkId) override
+    {
+    }
+
+    void DoNotifyReceivedGroupcast(Ptr<const WifiMpdu> mpdu, linkId_t linkId) override
+    {
+    }
+
+    void DoNotifyRequestAccess(Ptr<Txop> txop, linkId_t linkId) override
+    {
+        if (auto phy = GetStaMac()->GetWifiPhy(linkId); phy->IsStateSleep())
+        {
+            phy->ResumeFromSleep();
+        }
+    }
+
+    void DoNotifyChannelReleased(Ptr<Txop> txop, linkId_t linkId) override
+    {
+        if (!GetStaMac()->IsAssociated() || GetStaMac()->GetPmMode(linkId) == WIFI_PM_ACTIVE)
+        {
+            return;
+        }
+        if (auto phy = GetStaMac()->GetWifiPhy(linkId); !phy->IsStateSleep())
+        {
+            phy->SetSleepMode(true);
+            ++m_dozeCount;
+        }
+    }
+
+    void DoTxDropped(WifiMacDropReason reason, Ptr<const WifiMpdu> mpdu) override
+    {
+    }
+};
+
+NS_OBJECT_ENSURE_REGISTERED(DozeOnChannelReleaseManager);
+
+/**
+ * @ingroup wifi-test
+ * @ingroup tests
+ *
+ * @brief Test that a PM mode switch completes despite the loss of the Data Null frame
+ *
+ * A QoS STA is requested to switch to power save mode while it has no queued frames, hence
+ * it enqueues a Data Null frame to indicate the PM mode change to the AP. The first
+ * transmission of the Data Null frame is corrupted at the AP, so that the STA does not
+ * receive the expected acknowledgment. The Power Save Manager installed on the STA puts
+ * the PHY in sleep state as soon as the channel is released after the failed attempt
+ * (which the PowerSaveManager API explicitly supports), hence channel access cannot be
+ * requested again at that time to retransmit the Data Null frame.
+ *
+ * This test verifies that the new attempt at switching the PM mode scheduled after the PM
+ * mode switch timeout requests channel access again (thus resuming the PHY from sleep
+ * state), so that the Data Null frame is retransmitted and the PM mode switch completes
+ * shortly after the PM mode switch timeout. Without such a request, the Data Null frame
+ * would be stuck in the AC queue until its lifetime expires and the PM mode switch would
+ * complete only when a subsequent attempt finds the AC queue empty and enqueues a new
+ * Data Null frame (or would never complete, if transmissions can only occur in given time
+ * windows, as is the case, e.g., with Target Wake Time).
+ */
+class WifiPmSwitchRetryTest : public TestCase
+{
+  public:
+    WifiPmSwitchRetryTest();
+
+  private:
+    void DoSetup() override;
+    void DoRun() override;
+
+    /**
+     * Callback invoked when a PHY of the STA starts transmitting a PSDU map.
+     *
+     * @param psduMap the PSDU map
+     * @param txVector the TX vector
+     * @param txPower the TX power
+     */
+    void Transmit(WifiConstPsduMap psduMap, WifiTxVector txVector, Watt_u txPower);
+
+    Ptr<ApWifiMac> m_apMac;                         ///< AP wifi MAC
+    Ptr<StaWifiMac> m_staMac;                       ///< STA wifi MAC
+    Ptr<DozeOnChannelReleaseManager> m_psManager;   ///< Power Save Manager of the STA
+    Ptr<ListErrorModel> m_apErrorModel;             ///< error model installed on the AP
+    std::vector<Time> m_nullTxTimes;                ///< times the STA transmitted a Data Null
+    const Time m_pmToggleTime{Seconds(1)};          ///< when power save mode is enabled
+    const Time m_pmModeSwitchTimeout{Seconds(0.1)}; ///< the PM mode switch timeout
+};
+
+WifiPmSwitchRetryTest::WifiPmSwitchRetryTest()
+    : TestCase("Test that a PM mode switch completes despite the loss of the Data Null frame"),
+      m_apErrorModel(CreateObject<ListErrorModel>())
+{
+}
+
+void
+WifiPmSwitchRetryTest::DoSetup()
+{
+    RngSeedManager::SetSeed(1);
+    RngSeedManager::SetRun(2);
+    int64_t streamNumber = 50;
+
+    NodeContainer wifiApNode(1);
+    NodeContainer wifiStaNode(1);
+
+    WifiHelper wifi;
+    wifi.SetStandard(WIFI_STANDARD_80211ax);
+    wifi.SetRemoteStationManager("ns3::ConstantRateWifiManager",
+                                 "DataMode",
+                                 StringValue("HeMcs0"),
+                                 "ControlMode",
+                                 StringValue("OfdmRate6Mbps"));
+
+    auto channel = CreateObject<MultiModelSpectrumChannel>();
+    SpectrumWifiPhyHelper phy;
+    phy.SetChannel(channel);
+    phy.Set("ChannelSettings", StringValue("{36, 0, BAND_5GHZ, 0}"));
+
+    WifiMacHelper mac;
+    mac.SetType("ns3::ApWifiMac",
+                "QosSupported",
+                BooleanValue(true),
+                "Ssid",
+                SsidValue(Ssid("pm-switch-ssid")));
+
+    auto apDev = wifi.Install(phy, mac, wifiApNode);
+
+    mac.SetType("ns3::StaWifiMac",
+                "QosSupported",
+                BooleanValue(true),
+                "PmModeSwitchTimeout",
+                TimeValue(m_pmModeSwitchTimeout),
+                "Ssid",
+                SsidValue(Ssid("pm-switch-ssid")));
+    mac.SetPowerSaveManager("ns3::DozeOnChannelReleaseManager");
+
+    auto staDev = wifi.Install(phy, mac, wifiStaNode);
+
+    streamNumber += WifiHelper::AssignStreams(NetDeviceContainer(apDev, staDev), streamNumber);
+
+    auto positionAlloc = CreateObject<ListPositionAllocator>();
+    positionAlloc->Add(Vector(0.0, 0.0, 0.0));
+    positionAlloc->Add(Vector(1.0, 0.0, 0.0));
+    MobilityHelper mobility;
+    mobility.SetPositionAllocator(positionAlloc);
+    mobility.SetMobilityModel("ns3::ConstantPositionMobilityModel");
+    mobility.Install(wifiApNode);
+    mobility.Install(wifiStaNode);
+
+    m_apMac = DynamicCast<ApWifiMac>(DynamicCast<WifiNetDevice>(apDev.Get(0))->GetMac());
+    m_staMac = DynamicCast<StaWifiMac>(DynamicCast<WifiNetDevice>(staDev.Get(0))->GetMac());
+    m_psManager = DynamicCast<DozeOnChannelReleaseManager>(m_staMac->GetPowerSaveManager());
+    NS_TEST_ASSERT_MSG_NE(m_psManager, nullptr, "Expected a DozeOnChannelReleaseManager");
+
+    // trace PSDUs transmitted by the STA
+    m_staMac->GetWifiPhy(0)->TraceConnectWithoutContext(
+        "PhyTxPsduBegin",
+        MakeCallback(&WifiPmSwitchRetryTest::Transmit, this));
+
+    // install the post reception error model on the AP
+    m_apMac->GetWifiPhy(0)->SetPostReceptionErrorModel(m_apErrorModel);
+}
+
+void
+WifiPmSwitchRetryTest::Transmit(WifiConstPsduMap psduMap, WifiTxVector txVector, Watt_u txPower)
+{
+    const auto psdu = psduMap.cbegin()->second;
+    const auto& hdr = psdu->GetHeader(0);
+
+    if (!hdr.IsData() || hdr.HasData())
+    {
+        return; // not a (QoS) Null frame
+    }
+
+    m_nullTxTimes.push_back(Simulator::Now());
+
+    if (m_nullTxTimes.size() == 1)
+    {
+        NS_TEST_EXPECT_MSG_EQ(hdr.IsPowerManagement(),
+                              true,
+                              "Expected the Power Management field of the Data Null frame to be "
+                              "set");
+        // corrupt the first transmission of the Data Null frame at the AP
+        m_apErrorModel->SetList({(*psdu->begin())->GetPacket()->GetUid()});
+    }
+    else
+    {
+        // do not corrupt any other frame
+        m_apErrorModel->SetList({});
+    }
+}
+
+void
+WifiPmSwitchRetryTest::DoRun()
+{
+    // enable power save mode at the time the STA (which has been idle since association)
+    // has no queued frames, so that a Data Null frame is enqueued to indicate the PM mode
+    // change to the AP
+    Simulator::Schedule(m_pmToggleTime, [this]() { m_staMac->SetPowerSaveMode({true, 0}); });
+
+    Simulator::Stop(m_pmToggleTime + Seconds(1));
+    Simulator::Run();
+
+    NS_TEST_ASSERT_MSG_GT_OR_EQ(m_nullTxTimes.size(),
+                                2,
+                                "Expected the Data Null frame to be transmitted at least twice");
+    NS_TEST_EXPECT_MSG_GT_OR_EQ(m_psManager->m_dozeCount,
+                                1,
+                                "Expected the PHY to be put in sleep state after the failed "
+                                "attempt");
+    NS_TEST_ASSERT_MSG_EQ(m_psManager->m_psCompleted.has_value(),
+                          true,
+                          "The PM mode switch never completed");
+    // the PM mode switch must complete thanks to the retransmission of the original Data
+    // Null frame triggered by the first new attempt scheduled after the PM mode switch
+    // timeout, i.e., well before the lifetime (500 ms) of the original Data Null frame
+    // expires and a subsequent attempt enqueues a new Data Null frame
+    NS_TEST_EXPECT_MSG_LT(*m_psManager->m_psCompleted,
+                          m_pmToggleTime + 2 * m_pmModeSwitchTimeout,
+                          "The PM mode switch did not complete within the expected time");
+
+    Simulator::Destroy();
+}
+
+/**
+ * @ingroup wifi-test
+ * @ingroup tests
+ *
  * @brief Power Save Test Suite
  */
 class PowerSaveTestSuite : public TestSuite
@@ -3250,6 +3524,8 @@ PowerSaveTestSuite::PowerSaveTestSuite()
                         TestCase::Duration::QUICK);
         }
     }
+
+    AddTestCase(new WifiPmSwitchRetryTest, TestCase::Duration::QUICK);
 }
 
 static PowerSaveTestSuite g_powerSaveTestSuite; ///< the test suite

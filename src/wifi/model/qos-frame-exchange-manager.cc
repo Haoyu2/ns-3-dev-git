@@ -887,7 +887,11 @@ QosFrameExchangeManager::ReceiveMpdu(Ptr<const WifiMpdu> mpdu,
 
     if (hdr.IsQosData())
     {
-        if (hdr.GetAddr1() == m_self && hdr.GetQosAckPolicy() == WifiMacHeader::NORMAL_ACK)
+        // an immediate response (Ack) is sent a SIFS after the end of the PPDU carrying the
+        // MPDU, hence no Ack is scheduled if the MPDU was received within an A-MPDU (for
+        // which the Normal Ack policy has implicit Block Ack Request semantics)
+        if (hdr.GetAddr1() == m_self && hdr.GetQosAckPolicy() == WifiMacHeader::NORMAL_ACK &&
+            !inAmpdu)
         {
             NS_LOG_DEBUG("Received " << hdr.GetTypeString() << " from=" << hdr.GetAddr2()
                                      << ", schedule ACK");

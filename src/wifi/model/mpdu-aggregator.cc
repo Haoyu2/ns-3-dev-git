@@ -233,12 +233,14 @@ MpduAggregator::GetNextAmpdu(Ptr<WifiMpdu> mpdu,
     const auto bufferSize = qosTxop->GetBaBufferSize(origRecipient, tid, isGcr);
     const auto startSeq = qosTxop->GetBaStartingSequence(origRecipient, tid, isGcr);
 
-    // Have to make sure that the block ack agreement is established and A-MPDU is enabled
+    // Have to make sure that the block ack agreement is established and A-MPDU is enabled.
+    // Also, a QoS Null frame is not sent under a block ack agreement, hence no MPDU is
+    // aggregated to a QoS Null frame
     auto apMac = DynamicCast<ApWifiMac>(m_mac);
     const auto agreementEstablished =
         isGcr ? apMac->IsGcrBaAgreementEstablishedWithAllMembers(header.GetAddr1(), tid)
               : m_mac->GetBaAgreementEstablishedAsOriginator(recipient, tid).has_value();
-    if (agreementEstablished &&
+    if (agreementEstablished && header.HasData() &&
         GetMaxAmpduSize(recipient, tid, txParams.m_txVector.GetModulationClass()) > 0)
     {
         /* here is performed MPDU aggregation */
@@ -275,6 +277,13 @@ MpduAggregator::GetNextAmpdu(Ptr<WifiMpdu> mpdu,
             auto peekedMpdu =
                 qosTxop->PeekNextMpdu(m_linkId, tid, origAddr1, nextMpdu->GetOriginal());
             nextMpdu = nullptr;
+
+            if (peekedMpdu && !peekedMpdu->GetHeader().HasData())
+            {
+                // a QoS Null frame is not sent under a block ack agreement, hence it
+                // cannot be included in the A-MPDU; stop aggregating
+                peekedMpdu = nullptr;
+            }
 
             if (peekedMpdu)
             {

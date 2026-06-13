@@ -40,6 +40,9 @@
 
 \newcommand{\tmin}{T^{\min}}
 \newcommand{\dmax}{d_{\max}}
+% allow long monospace identifiers to break at camelCase boundaries (no hyphen)
+\newcommand{\cbk}{\discretionary{}{}{}}
+\newcommand{\TwtPSM}{\texttt{Twt\cbk Power\cbk Save\cbk Manager}}
 
 \title[Age-Optimal Target Wake Time]{Age-Optimal Target Wake Time: Provably
 Good Wake Schedules for Energy-Constrained Wi-Fi Status Updating}
@@ -522,7 +525,7 @@ reproduction guide are available at
 \url{https://github.com/Haoyu2/age-optimal-twt} -- an ns-3 \texttt{contrib}
 module plus the \texttt{src/wifi} mechanism patch, with the raw sweep results,
 released to support artifact evaluation.} It comprises a
-\texttt{TwtPowerSaveManager}
+\TwtPSM{}
 realizing individual implicit TWT as a subclass of the 802.11 power-save
 architecture, and the scheduler as a pluggable policy module. Three
 mechanism elements proved essential, each corresponding to a measured

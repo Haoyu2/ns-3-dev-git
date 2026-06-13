@@ -155,12 +155,17 @@ place $\phi_1$ in any gap.
 
 \begin{theorem}[exact $N{=}2$]
 \label{app:n2}
-With $J(r, q) = (a_1 + a_2 r)\max(\tmin_1,\, \tmin_2/r,\, q(d_1{+}d_2))$,
-the optimum equals
-$\min_{q \le Q}\ \min_{p \in \{\lfloor q r_q^* \rfloor, \lceil q r_q^*
-\rceil\},\, p \ge q} J(p/q, q)$ where
-$r_q^* = \max(1, \tmin_2 / \max(\tmin_1, q(d_1{+}d_2)))$ and
-$Q = \lceil J(\lceil r_1^* \rceil, 1) / ((a_1{+}a_2)(d_1{+}d_2)) \rceil$:
+Let $J(r, q) = (a_1 + a_2 r)\max(\tmin_1,\, \tmin_2/r,\, q(d_1{+}d_2))$ and
+\begin{equation*}
+r_q^* = \max\!\Big(1,\ \frac{\tmin_2}{\max(\tmin_1,\, q(d_1{+}d_2))}\Big),
+\quad
+Q = \Big\lceil \frac{J(\lceil r_1^* \rceil, 1)}{(a_1{+}a_2)(d_1{+}d_2)} \Big\rceil.
+\end{equation*}
+Then the optimum equals
+\begin{equation*}
+\min_{q \le Q}\ \min_{\substack{p \in \{\lfloor q r_q^* \rfloor,\,
+\lceil q r_q^* \rceil\}\\ p \ge q}} J(p/q, q),
+\end{equation*}
 an $O(Q)$ exact algorithm.
 \end{theorem}
 

@@ -214,7 +214,7 @@ TWT schedule design from abstract sampling models, and we keep it in the
 model throughout.
 
 We validated Proposition~\ref{prop:renewal} against packet-level 802.11ax
-simulation (Section~\ref{sec:implementation}): measured time-average AoI
+simulation (Section~\ref{sec:evaluation}): measured time-average AoI
 matches within $0.02\%$ ($p \approx 1$, two parameter sets) and within
 $0.6$--$1.2\%$ under per-SP block fading with $p \in \{0.8, 0.6, 0.4\}$,
 with measured duty cycles equal to $d/T$ to four decimals.
@@ -601,12 +601,14 @@ a request only when $d' \le t_0(1-U)$, which the count invariant satisfies
 for $U \le 1/2$; starting from $\rho^\star{=}1/4$ leaves exactly the headroom
 for both. The practical variant instead packs the true SP durations
 greedily, so neither loss applies and density $0.9$ is feasible -- but it has
-no worst-case certificate. The two are thus not interchangeable: we report
-the practical variant's numbers throughout, and use the certified variant
-only to establish that the same algorithmic template admits a guarantee. The LB
-column quantifies the cost of this conservatism -- both variants sit between
-LB and the baseline, the practical one near LB. Tightening the analyzed
-budget toward $\rho^\star{=}0.9$ is open (Sec.~\ref{sec:conclusion}).
+no worst-case certificate. The two are thus not interchangeable: the theorem certifies the
+\emph{template} (relaxation, anchor rule, packing, safeguard), while the
+high-density practical variant is what we evaluate throughout. Under its
+conservative budget the certified variant's safeguard returns the uniform
+schedule in the heterogeneous-budget regimes, so it tracks equal-interval
+there rather than the practical variant; closing this gap -- a tighter
+packing analysis that certifies a density target near $0.9$ -- is open
+(Sec.~\ref{sec:conclusion}).
 
 \begin{figure}[t]
 \centering

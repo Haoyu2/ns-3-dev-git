@@ -1,41 +1,29 @@
 # Two formats share body.tex / abstract.tex / commonmacros.tex:
 #   main.tex       -> ACM (acmart sigconf)   -> main.pdf / techreport.pdf
 #   main-ieee.tex  -> IEEE (IEEEtran)        -> main-ieee.pdf / techreport-ieee.pdf
-# IEEE is the MSWiM submission format. pdflatex can exit non-zero on warnings,
-# which would stop make before the ref-resolving passes -- prefix with `-`.
+# IEEE is the MSWiM submission format. latexmk runs the correct passes, tracks
+# figure dependencies, and -- unlike a hand-rolled multi-pass recipe -- returns
+# a non-zero exit on real LaTeX/BibTeX errors, so build failures are not hidden.
 
-SHARED = body.tex abstract.tex commonmacros.tex refs.bib appendix.tex \
-         $(wildcard results_macros.tex) $(wildcard lb_macros.tex)
+LATEXMK = latexmk -pdf -interaction=nonstopmode -halt-on-error
 
 all: main-ieee.pdf main.pdf
 
-main-ieee.pdf: main-ieee.tex $(SHARED)
-	-pdflatex -interaction=nonstopmode main-ieee
-	-bibtex main-ieee
-	-pdflatex -interaction=nonstopmode main-ieee
-	pdflatex -interaction=nonstopmode main-ieee
+main-ieee.pdf: main-ieee.tex body.tex abstract.tex commonmacros.tex refs.bib
+	$(LATEXMK) main-ieee
 
-main.pdf: main.tex $(SHARED)
-	-pdflatex -interaction=nonstopmode main
-	-bibtex main
-	-pdflatex -interaction=nonstopmode main
-	pdflatex -interaction=nonstopmode main
+main.pdf: main.tex body.tex abstract.tex commonmacros.tex refs.bib
+	$(LATEXMK) main
 
 # technical-report versions (with the full-proofs appendix)
-techreport-ieee: main-ieee.tex $(SHARED)
-	-pdflatex -interaction=nonstopmode -jobname=techreport-ieee "\def\TECHREPORT{1}\input{main-ieee}"
-	-bibtex techreport-ieee
-	-pdflatex -interaction=nonstopmode -jobname=techreport-ieee "\def\TECHREPORT{1}\input{main-ieee}"
-	pdflatex -interaction=nonstopmode -jobname=techreport-ieee "\def\TECHREPORT{1}\input{main-ieee}"
+techreport-ieee:
+	$(LATEXMK) -jobname=techreport-ieee -usepretex='\def\TECHREPORT{1}' main-ieee
 
-techreport: main.tex $(SHARED)
-	-pdflatex -interaction=nonstopmode -jobname=techreport "\def\TECHREPORT{1}\input{main}"
-	-bibtex techreport
-	-pdflatex -interaction=nonstopmode -jobname=techreport "\def\TECHREPORT{1}\input{main}"
-	pdflatex -interaction=nonstopmode -jobname=techreport "\def\TECHREPORT{1}\input{main}"
+techreport:
+	$(LATEXMK) -jobname=techreport -usepretex='\def\TECHREPORT{1}' main
 
 clean:
-	rm -f *.aux *.bbl *.blg *.log *.out main.pdf main-ieee.pdf \
-	      techreport.pdf techreport-ieee.pdf
+	latexmk -C
+	rm -f techreport.* techreport-ieee.* *.bbl
 
 .PHONY: all clean techreport techreport-ieee

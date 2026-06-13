@@ -12,6 +12,9 @@ from collections import defaultdict
 
 import matplotlib
 matplotlib.use("Agg")
+# embed TrueType (Type 42), not Type 3 -- IEEE PDF checks reject Type 3 fonts
+matplotlib.rcParams["pdf.fonttype"] = 42
+matplotlib.rcParams["ps.fonttype"] = 42
 import matplotlib.pyplot as plt  # noqa: E402
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))

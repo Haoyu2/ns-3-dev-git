@@ -1,16 +1,20 @@
 \documentclass[sigconf,nonacm]{acmart}
-\usepackage{amsmath,amssymb}
+% acmart already loads amsmath/amsfonts (\mathbb, \Bbbk), amsthm, booktabs,
+% graphicx, hyperref, natbib, etoolbox -- do NOT load amssymb (it redefines
+% \Bbbk and clashes).
 \usepackage{algorithm}
 \usepackage{algpseudocode}
 \usepackage{tikz}
 \usetikzlibrary{decorations.pathreplacing}
-% acmart loads amsthm, booktabs, graphicx, hyperref, natbib already.
-% acmart predefines theorem/lemma/corollary/proposition (shared counter);
-% add the ones it does not.
-\theoremstyle{acmplain}
-\newtheorem{assumption}[theorem]{Assumption}
-\theoremstyle{acmdefinition}
-\newtheorem{remark}[theorem]{Remark}
+% acmart defines its theorem environments (theorem/lemma/corollary/...) inside
+% \AtEndPreamble, so the shared `theorem' counter does not exist yet at this
+% point. Add the two it does not provide from the same hook, after acmart's.
+\AtEndPreamble{%
+  \theoremstyle{acmplain}%
+  \newtheorem{assumption}[theorem]{Assumption}%
+  \theoremstyle{acmdefinition}%
+  \newtheorem{remark}[theorem]{Remark}%
+}
 \settopmatter{printacmref=false}
 \setcopyright{none}
 \renewcommand\footnotetextcopyrightpermission[1]{}

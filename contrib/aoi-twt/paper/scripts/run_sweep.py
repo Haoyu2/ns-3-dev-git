@@ -1,18 +1,28 @@
 #!/usr/bin/env python3
 """Paper-grade experiment sweep for the AoI-TWT paper.
 
-Run from the ns-3 root (after building scratch/twt-aoi-multista):
+Run from the ns-3 root (after building the twt-aoi-multista example):
     python3 contrib/aoi-twt/paper/scripts/run_sweep.py
 Produces results.csv with one row per (regime, scheduler, seed).
 """
 
 import concurrent.futures
+import glob
 import os
 import re
 import subprocess
 import sys
 
-BIN = "./build/scratch/ns3.48-twt-aoi-multista-default"
+
+def find_bin(name):
+    """Locate a built example binary regardless of build profile suffix."""
+    hits = sorted(glob.glob(f"build/contrib/aoi-twt/examples/ns3.48-{name}-*"))
+    if not hits:
+        sys.exit(f"binary for '{name}' not found; build with --enable-examples")
+    return "./" + hits[0]
+
+
+BIN = find_bin("twt-aoi-multista")
 ENV = dict(os.environ, LD_LIBRARY_PATH=os.path.abspath("build/lib"))
 SIM_TIME = "300"
 

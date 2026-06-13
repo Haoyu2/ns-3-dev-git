@@ -5,13 +5,24 @@ Run from the ns-3 root after building. Produces valgrid.csv and scaling.csv.
 """
 
 import concurrent.futures
+import glob
 import os
 import re
 import subprocess
+import sys
+
+
+def find_bin(name):
+    """Locate a built example binary regardless of build profile suffix."""
+    hits = sorted(glob.glob(f"build/contrib/aoi-twt/examples/ns3.48-{name}-*"))
+    if not hits:
+        sys.exit(f"binary for '{name}' not found; build with --enable-examples")
+    return "./" + hits[0]
+
 
 ENV = dict(os.environ, LD_LIBRARY_PATH=os.path.abspath("build/lib"))
-VAL_BIN = "./build/scratch/ns3.48-twt-aoi-validation-default"
-MULTI_BIN = "./build/scratch/ns3.48-twt-aoi-multista-default"
+VAL_BIN = find_bin("twt-aoi-validation")
+MULTI_BIN = find_bin("twt-aoi-multista")
 
 
 def run_validation(e, rng):

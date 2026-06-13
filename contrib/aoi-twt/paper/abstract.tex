@@ -1,0 +1,24 @@
+Target Wake Time (TWT), introduced in IEEE 802.11ax, lets an access point
+schedule exactly when each station wakes, transmits, and dozes. Existing TWT
+schedulers optimize energy or throughput, treating information freshness at
+best as a constraint and offering no performance guarantees. We design the
+wake schedule itself for freshness: minimize the weighted average Age of
+Information (AoI) over stations subject to per-station energy budgets, where
+the decision variables are the TWT triples (wake interval, offset, service
+period duration). We derive a renewal-exact AoI model for TWT under per-SP
+block fading and validate it against packet-level 802.11ax simulation with
+${\sim}1\%$ mean error. We show that, unlike preemptive scheduling, non-preemptive TWT
+packing can be infeasible at schedule density~1, and identify the granularity
+condition under which a small-first best-fit packer provably succeeds. Around
+this we build \textsc{Harmonic-Greedy}, a scheduler combining a convex
+relaxation, anchor-optimized power-of-two rounding, and a best-of-uniform
+safeguard, and prove it is a constant-factor approximation: $4/\ln 2 \approx
+5.77$ under a mild granularity assumption and $6/\ln 2 \approx 8.66$
+unconditionally. We implement the complete system in ns-3 -- a TWT wake/doze
+mechanism integrated with the power-save architecture, plus the scheduler --
+and show that it is the only scheduler that stays near a relaxation lower
+bound across all regimes: against a strong energy-greedy baseline it ties
+when per-station energy floors already pin the periods, and wins by
+$5$--$36\%$ exactly where the schedule density is binding and must be
+redistributed by AoI weight or channel quality rather than by energy budget
+-- the regime our analysis identifies.

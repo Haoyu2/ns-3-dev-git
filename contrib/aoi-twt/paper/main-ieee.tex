@@ -1,0 +1,61 @@
+% IEEE (IEEEtran conference) version -- the MSWiM submission format.
+% The ACM version is main.tex. Both share body.tex, abstract.tex, commonmacros.tex.
+\documentclass[conference]{IEEEtran}
+\usepackage{amsmath,amssymb}
+\usepackage{amsthm}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage{tikz}
+\usetikzlibrary{decorations.pathreplacing}
+\usepackage{cite}
+\usepackage[hidelinks]{hyperref}
+
+\theoremstyle{plain}
+\newtheorem{theorem}{Theorem}
+\newtheorem{lemma}{Lemma}
+\newtheorem{corollary}{Corollary}
+\newtheorem{proposition}{Proposition}
+\newtheorem{assumption}{Assumption}
+\theoremstyle{definition}
+\newtheorem{remark}{Remark}
+
+\input{commonmacros}
+
+\title{Age-Optimal Target Wake Time: Provably Good Wake Schedules for
+Energy-Constrained Wi-Fi Status Updating}
+
+\author{%
+\IEEEauthorblockN{Haoyu Wang\IEEEauthorrefmark{1},
+Bo Sheng\IEEEauthorrefmark{1},
+Xiaoqian Zhang\IEEEauthorrefmark{2}}
+\IEEEauthorblockA{\IEEEauthorrefmark{1}University of Massachusetts Boston,
+Boston, MA, USA\\
+\{haoyu.wang001, bo.sheng\}@umb.edu}
+\IEEEauthorblockA{\IEEEauthorrefmark{2}University of Nebraska Omaha,
+Omaha, NE, USA\\
+xiaoqianzhang@unomaha.edu}}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+\input{abstract}
+\end{abstract}
+
+\begin{IEEEkeywords}
+Age of Information, Target Wake Time, IEEE 802.11ax, scheduling,
+energy efficiency, ns-3
+\end{IEEEkeywords}
+
+\input{body}
+
+\bibliographystyle{IEEEtran}
+\bibliography{refs}
+
+\ifdefined\TECHREPORT
+\input{appendix}
+\fi
+
+\end{document}

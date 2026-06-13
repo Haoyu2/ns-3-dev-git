@@ -1,0 +1,680 @@
+\section{Introduction}
+\label{sec:intro}
+
+Real-time monitoring applications -- industrial sensing, health wearables,
+smart-building telemetry -- send small periodic status updates over Wi-Fi
+while running on batteries. Two trends collide in such systems. On one hand,
+the relevant performance metric is not throughput or even delay, but the
+\emph{Age of Information} (AoI)~\cite{kaul12,yates21}: the time elapsed since
+the generation of the freshest delivered update. On the other, the dominant energy cost is simply
+being awake: a station that wakes rarely is efficient but stale; one that
+wakes often is fresh but dies quickly.
+
+IEEE 802.11ax~\cite{ieee80211ax} introduced Target Wake Time (TWT) precisely
+to manage this trade-off mechanically: the AP and a station agree on a
+periodic schedule of \emph{service periods} (SPs) -- a wake interval $T$, an offset $\phi$, and an
+SP duration $d$ -- and the station dozes outside its SPs. TWT thus exposes,
+for the first time in mainstream Wi-Fi, the exact control surface that AoI
+theory wants to optimize: \emph{when} each source is allowed to deliver.
+Yet existing TWT schedulers optimize energy or throughput, treat freshness at
+best as a constraint, and offer no guarantees
+(Section~\ref{sec:related}).
+
+This paper designs the TWT schedule itself for freshness, with guarantees.
+Our contributions:
+\begin{itemize}
+\item \textbf{Model} (Sections~\ref{sec:model}--\ref{sec:single}): a
+renewal-exact expression for time-average and peak AoI of a TWT station under
+per-SP block fading, including the per-wake overhead $c_w$. A structural
+lemma shows batching retransmission attempts within an SP is \emph{never}
+beneficial without wake overhead -- $c_w$ is what makes TWT scheduling a
+genuinely new problem rather than abstract sampling.
+\item \textbf{Hardness structure} (Section~\ref{sec:problem}): a three-station
+example with schedule density exactly~1 that is infeasible under \emph{every}
+placement -- non-preemptive TWT packing fundamentally differs from preemptive
+utilization bounds (harmonic rate-monotonic is optimal at density~1 only
+because preemption can split service across gap copies).
+\item \textbf{Algorithm and guarantees}
+(Sections~\ref{sec:algorithm}--\ref{sec:theory}): \textsc{Harmonic-Greedy},
+combining a water-filling convex relaxation, power-of-two period rounding
+with an anchor chosen by a candidate-argmin rule, small-first best-fit
+packing of dyadic reservations, and a best-of-uniform safeguard. We prove a
+deterministic $4/\ln 2 \approx 5.77$ approximation under a mild granularity
+assumption, and $6/\ln 2 \approx 8.66$ unconditionally. The packing analysis
+gives a tight granularity threshold $d \le t_0 (1-U)$.
+\item \textbf{System} (Section~\ref{sec:implementation}): a complete ns-3
+implementation -- a TWT wake/doze mechanism integrated with the 802.11
+power-save architecture, with SP-boundary queue gating and TSF-anchored
+offsets -- validated against the analytical model with ${\sim}1\%$ mean
+error, plus five
+protocol findings about deploying TWT (e.g., doze announcements cannot be
+acknowledged over a faded channel; pending retransmissions must be gated or
+they erase the energy savings).
+\item \textbf{Evaluation} (Section~\ref{sec:evaluation}): against both a
+naive (equal-interval) and a strong (energy-greedy) baseline, plus a
+relaxation lower bound. We separate two effects -- period diversity, which
+the energy-greedy baseline already captures, and AoI-weighting, which we
+isolate in uniform-budget binding-density regimes where only our scheduler
+wins ($5$--$6.5\%$ over both baselines, up to $36\%$ at scale with mixed
+modulation rates), exactly where the theory predicts.
+\end{itemize}
+
+\section{Related Work}
+\label{sec:related}
+
+\textbf{Age of Information.} Since its introduction as a freshness
+metric~\cite{kaul12}, AoI has grown into a broad field spanning queueing,
+sampling, and estimation~\cite{kosta17,yates21}. Foundational results
+characterize the freshness-optimal update policy for a single
+source~\cite{sun17}, the effect of packet management and queue
+discipline~\cite{costa16,bedewy19q,yates19}, and AoI's role in
+IoT~\cite{abdelmagid19}. Variants such as the Age of Incorrect
+Information~\cite{maatouk20} refine the metric for estimation. Our renewal
+model (Sec.~\ref{sec:single}) specializes this machinery to the TWT
+service-period structure.
+
+\textbf{AoI scheduling.} Minimizing weighted AoI across many sources over a
+shared channel is the closest body of work. Centralized per-slot policies and
+their optimality were established for broadcast networks with reliable and
+unreliable links~\cite{kadota18,talak20} and with stochastic
+arrivals~\cite{hsu20,kadota21}; the restless-bandit structure yields
+Whittle-index policies that are near-optimal and, in cases, asymptotically
+optimal~\cite{tripathi24}. These works schedule \emph{which source transmits
+in each slot} under a centralized controller; we instead design \emph{periodic
+wake agreements} fixed in advance, where a sleeping station is unreachable
+between its service periods -- a constraint absent from slot-by-slot models.
+A parallel line constrains energy explicitly -- energy-harvesting
+sources~\cite{yates15,abdelmagid20}, retransmission/ARQ budgets~\cite{ceran19},
+and distributed freshness optimization~\cite{talak18dist} -- but optimizes
+transmission timing rather than a negotiated periodic wake schedule with a
+hard duty-cycle budget. Closest in spirit are sleep-wake AoI optimization for
+CSMA sensors~\cite{bedewy20}, which tunes continuous wake \emph{rates} under
+battery constraints but has no negotiated periodic structure, and age-agnostic
+cyclic schedulers~\cite{gamgam23}, which optimize deterministic transmission
+patterns but model neither energy nor sleeping.
+
+\textbf{TWT and Wi-Fi.} TWT was introduced in IEEE 802.11ax to manage
+energy and contention~\cite{ieee80211ax,bellalta16,khorov19}, and is extended
+in Wi-Fi 7 (802.11be) -- notably restricted TWT for latency-sensitive
+traffic and multi-link operation~\cite{lopezperez19,garciarodriguez21} --
+making schedule design increasingly central~\cite{twtsurvey25}.
+TASPER~\cite{tasper25} schedules TWT SPs to maximize throughput and energy
+efficiency subject to AoI \emph{constraints}, proves NP-hardness, and gives a
+heuristic without guarantees; experimental IIoT schedulers~\cite{twtdet25}
+respect AoI deadlines deterministically; and TWT mechanism implementations
+and measurement studies~\cite{wns3twt24a,wns3twt24b,nurchis19} provide the
+platform context. To our knowledge no prior work makes AoI the
+\emph{objective} of TWT schedule design or provides approximation guarantees.
+
+\textbf{Periodic real-time scheduling.} Our packing analysis connects to
+classical real-time theory. Rate-monotonic scheduling is optimal for
+preemptive periodic tasks~\cite{liu73}, and harmonic task sets are schedulable
+up to utilization~1 -- but only because preemption can split a job across the
+gaps left by higher-rate tasks. TWT service periods are \emph{contiguous and
+non-preemptive}, which is exactly why our Proposition~\ref{prop:ce} shows
+density~1 can be infeasible. The relevant non-preemptive analogue is the
+pinwheel problem and distance-constrained scheduling~\cite{holte89,han92,chan92},
+whose density thresholds and harmonic constructions inform our
+small-first best-fit packer; we adapt them to the AoI-weighted, energy-budgeted
+TWT setting.
+
+\section{System Model}
+\label{sec:model}
+
+$N$ stations are associated with one AP. Station $i$ holds a TWT agreement
+$(T_i, \phi_i, d_i)$: it wakes at times $\phi_i + k T_i$, stays awake for
+$d_i$, and dozes otherwise (Fig.~\ref{fig:mechanism}). SPs of different
+stations must not overlap (the scheduler's responsibility; overlaps cause
+contention we wish to design away). Station $i$ samples its source at the
+start of each SP (generate-at-will) and transmits the update uplink within
+the SP.
+
+\begin{figure}[t]
+\centering
+\input{figures/fig-mechanism}
+\caption{TWT wake schedules: station $i$ wakes for $d_i$ every $T_i$ at
+offset $\phi_i$ on a common (TSF-anchored) grid; the scheduler chooses the
+triples so that service periods are disjoint.}
+\label{fig:mechanism}
+\end{figure}
+
+\textbf{Channel.} We model per-SP block fading: the channel coherence time
+exceeds the SP duration, so all transmission attempts within one SP share
+fate; an SP succeeds with probability $p_i \in (0,1]$, independently across
+SPs. This is the regime in which retransmission policy matters for AoI: with
+per-attempt i.i.d. loss, in-SP retries drive the per-SP success probability
+to~1 and the problem degenerates (we verify this empirically in
+Section~\ref{sec:evaluation}).
+
+\textbf{Energy.} The station's energy cost is its awake time: each wake costs
+a fixed overhead $c_{w,i}$ (radio ramp-up, synchronization) plus the SP
+airtime. Station $i$ has a duty-cycle budget $\rho_i$:
+$d_i / T_i \le \rho_i$, equivalently $T_i \ge \tmin_i := d_i/\rho_i$.
+
+\textbf{Objective.} Let $A_i(t)$ be the age of the freshest update from
+station $i$ delivered to the AP. We minimize the weighted time-average AoI
+$\sum_i w_i \bar A_i$; Section~\ref{sec:theory} notes that all results carry
+to weighted peak AoI.
+
+\textbf{Scope.} We deliberately study the cleanest setting that isolates
+schedule design: uplink status updates, generate-at-will sampling, scheduled
+non-overlapping SPs (so contention is designed away), and per-SP block
+fading. These assumptions are standard in AoI scheduling~\cite{kadota18,
+gamgam23} and matched to monitoring IoT, the dominant TWT use case. Random
+arrivals couple the per-station decisions through the density constraint and
+turn the design into a constrained-MDP problem; downlink AoI requires
+broadcast TWT and AP-side delivery; both are natural extensions we discuss
+in Section~\ref{sec:conclusion} but do not treat here.
+
+\section{Single-Station Structure}
+\label{sec:single}
+
+Successful SPs form a renewal process; the standard renewal-reward AoI
+argument~\cite{kaul12,yates21} then gives the following, which is the linchpin
+that turns TWT scheduling into a linear objective (Section~\ref{sec:problem}).
+
+\begin{proposition}[TWT AoI]
+\label{prop:renewal}
+With wake interval $T$, per-SP success probability $p$, and mean in-SP
+delivery delay $\delta$,
+\[
+\bar A = \delta + T\Big(\frac{1}{p} - \frac12\Big), \qquad
+\bar A^{\mathrm{peak}} = \delta + \frac{T}{p}.
+\]
+\end{proposition}
+
+\begin{proof}[Sketch]
+Let $G$ be the number of wake intervals between successive successful SPs.
+Since each SP succeeds independently with probability $p$, $G$ is geometric on
+$\{1,2,\dots\}$, so $\mathbb{E}[G] = 1/p$ and $\mathbb{E}[G^2] = (2-p)/p^2$.
+The inter-delivery time is $X = GT$. After a successful delivery the AoI drops
+to the in-SP delay (mean $\delta$) and then grows linearly until the next
+success, so each renewal cycle contributes area $\delta X + X^2/2$. Dividing
+expected area by expected cycle length gives
+$\bar A = \delta + \mathbb{E}[X^2]/(2\mathbb{E}[X]) = \delta + T(1/p - 1/2)$,
+and the per-cycle peak $\delta + X$ averages to
+$\bar A^{\mathrm{peak}} = \delta + \mathbb{E}[X] = \delta + T/p$.
+\end{proof}
+
+When the channel is per-attempt i.i.d. with success probability $q$ and the
+SP holds $k$ attempts, $p = 1-(1-q)^k$ and $d = k s + c_w$ with $s$ the
+per-attempt airtime. Choosing $k$ under the energy-tight period
+$T = d/\rho$ reveals a clean dichotomy:
+
+\begin{lemma}[batching needs overhead]
+\label{lem:batching}
+With $c_w = 0$, the single attempt $k^*=1$ is optimal for every $q$: writing
+$f(k) = (k + c_w/s)(1/p(k) - 1/2)$, one computes
+$f(2)-f(1) = q/(2(2-q)) > 0$. With $c_w > 0$, $k^* > 1$ for sufficiently
+large $c_w/s$ at any fixed $q$.
+\end{lemma}
+
+The per-wake overhead is thus load-bearing: it is exactly what distinguishes
+TWT schedule design from abstract sampling models, and we keep it in the
+model throughout.
+
+We validated Proposition~\ref{prop:renewal} against packet-level 802.11ax
+simulation (Section~\ref{sec:implementation}): measured time-average AoI
+matches within $0.02\%$ ($p \approx 1$, two parameter sets) and within
+$0.6$--$1.2\%$ under per-SP block fading with $p \in \{0.8, 0.6, 0.4\}$,
+with measured duty cycles equal to $d/T$ to four decimals.
+
+\section{The Multi-Station Problem}
+\label{sec:problem}
+
+By Proposition~\ref{prop:renewal} the schedule cost is
+$J(T) = \sum_i a_i T_i + C$ with $a_i := w_i(1/p_i - 1/2)$ and $C$ a
+$T$-independent constant; the design problem is
+\begin{align}
+\min_{T, \phi}\ & \textstyle\sum_i a_i T_i \nonumber\\
+\text{s.t.}\ & \text{SPs pairwise disjoint},\quad T_i \ge \tmin_i.
+\label{eq:problem}
+\end{align}
+Disjointness implies the \emph{density} bound $U = \sum_i d_i/T_i \le 1$,
+but the converse fails in a structural way:
+
+\begin{proposition}[density 1 can be unpackable]
+\label{prop:ce}
+Let $t_0$ be a base period and consider stations $A_1$: $(T{=}t_0,
+d{=}t_0/2)$, $A_2$: $(T{=}t_0, d{=}t_0/4)$, $B$: $(T{=}2t_0, d{=}t_0/2)$,
+with $U = 1$. No placement of offsets makes the SPs disjoint.
+\end{proposition}
+
+\begin{proof}
+$A_1, A_2$ repeat in every base window, leaving a free set $S$ of measure
+$t_0/4$, identical in every window. $B$'s SP is a contiguous interval of
+length $t_0/2$ meeting at most two consecutive windows, as a suffix of one
+and a prefix of the next; both pieces must lie in $S$, so $|S| \ge t_0/2$,
+a contradiction (Fig.~\ref{fig:ce1}).
+\end{proof}
+
+\begin{figure}[t]
+\centering
+\input{figures/fig-ce1}
+\caption{Proposition~\ref{prop:ce}: at density $1$, the per-window free set
+has measure $t_0/4$, but $B$'s contiguous SP needs $t_0/2$ of it -- in every
+window, under every placement.}
+\label{fig:ce1}
+\end{figure}
+
+\begin{remark}
+Under \emph{preemptive} scheduling the same instance is feasible (harmonic
+rate-monotonic is optimal at utilization~1): preemption splits $B$'s service
+across the two gap copies. TWT SPs are contiguous by design, so utilization
+intuition from real-time scheduling does not transfer. Any packing guarantee
+must involve granularity, which our analysis makes precise
+(Lemma~\ref{lem:packing}).
+\end{remark}
+
+A second structural fact bounds every period from below:
+
+\begin{lemma}[long SPs dominate periods]
+\label{lem:longsp}
+In any feasible schedule, $T_i \ge \dmax := \max_k d_k$ for all $i$.
+\end{lemma}
+
+\begin{proof}
+If $T_A < d_B$, the starts of $A$'s SPs are spaced $T_A$ apart, so one lies
+inside $B$'s SP, and the corresponding $A$-SP overlaps it.
+\end{proof}
+
+\section{The \textsc{Harmonic-Greedy} Scheduler}
+\label{sec:algorithm}
+
+\begin{algorithm}[t]
+\caption{\textsc{Harmonic-Greedy}}
+\label{alg:hg}
+\begin{algorithmic}[1]
+\State per station, choose attempts $k_i$ (Lemma~\ref{lem:batching}) and
+$d_i \gets k_i s_i + c_{w,i}$
+\State solve relaxation \eqref{eq:relax} with density target $\rho^\star$
+(water-filling, Lemma~\ref{lem:relax})
+\State round periods up to grid $\{t_0 2^j\}$, choosing $t_0$ by
+candidate-argmin (Corollary~\ref{cor:anchor})
+\State re-expand SPs into rounding slack when $p_i < 1$ (more attempts at
+fixed $T$ are free for AoI)
+\State pack by small-first best-fit (Section~\ref{sec:theory}); emit
+$(T_i, \phi_i, d_i)$
+\State \textbf{safeguard}: if the uniform schedule
+$T_u = \max(\max_i \tmin_i, \sum_i d_i)$ has lower estimated cost, return it
+\end{algorithmic}
+\end{algorithm}
+
+The relaxation replaces disjointness by its density consequence:
+\begin{equation}
+J^* = \min\Big\{ \sum_i a_i T_i : \sum_i \frac{d_i}{T_i} \le 1,\;
+T_i \ge \max(\tmin_i, \dmax) \Big\},
+\label{eq:relax}
+\end{equation}
+valid as a lower bound on \eqref{eq:problem} by Lemma~\ref{lem:longsp}.
+
+\begin{lemma}[water-filling]
+\label{lem:relax}
+\eqref{eq:relax} is convex; its solution is
+$T_i(\lambda) = \max\big(\tmin_i, \dmax, \sqrt{\lambda d_i / a_i}\big)$ with
+$\lambda \ge 0$ the density multiplier (found by bisection).
+\end{lemma}
+
+Two implementation-driven design elements deserve emphasis, both discovered
+by simulation. First, the \emph{anchor matters}: rounding to powers of two
+of an arbitrary base can double a period; choosing the anchor among the
+ideal periods folded into $(\tmin/2, \tmin]$ -- each candidate makes one
+station's rounding lossless -- is provably as good as a random anchor
+(Corollary~\ref{cor:anchor}) and empirically much better. Second, the
+\emph{safeguard matters}: when the relaxation's period spread is sub-octave
+(all ideal periods within a factor 2), the harmonic grid cannot express the
+differentiation and rounding losses dominate. For example, ideal periods of
+$30$ and $50$\,ms (ratio $1.67 < 2$) round to the \emph{same} power-of-two
+grid level, so the harmonic schedule cannot give the more important station a
+shorter period and merely pays the rounding cost; the safeguard then returns
+the uniform schedule instead. We call this the \emph{octave quantization}
+effect and quantify it in Section~\ref{sec:evaluation}.
+
+\section{Approximation Guarantees}
+\label{sec:theory}
+
+We analyze a conservative variant: density target $\rho^\star$, dyadic
+\emph{reservations} (each station reserves the smallest $t_0/2^m \ge d_i$;
+it transmits only $d_i$ inside the reservation, so reservations cost no
+energy), and small-first best-fit (SF-BF) packing: process stations by
+increasing period; place each into a minimum-size free block of sufficient
+size, carving from the left and returning the staircase remainder.
+
+\begin{lemma}[count invariant]
+\label{lem:counts}
+During SF-BF, new free blocks are only created at sizes currently absent
+(the staircase sizes lie in $[q, b)$, empty by minimality of the chosen
+block $b$); at the start of level-$j$ processing every size has at most
+$2^j$ free blocks. Both bounds are tight.
+\end{lemma}
+
+\begin{lemma}[packing threshold]
+\label{lem:packing}
+If every reservation satisfies $d'_i \le t_0 (1 - U)$ with
+$U = \sum_i d'_i/T_i$, SF-BF places all stations. Conversely (cf.
+Proposition~\ref{prop:ce}), a station of level $\ge 1$ must satisfy
+$d' \le t_0(1 - U_0)$ where $U_0$ is the lower-level utilization: the
+threshold is tight up to the requesting station's own density share.
+\end{lemma}
+
+\begin{proof}[Proof sketch]
+A failed request $q$ at level $j$ implies all free blocks are smaller than
+$q$; by Lemma~\ref{lem:counts} the free measure is below $2^j q$. But the
+free measure within the level-$j$ window is at least
+$t_0 2^j (1-U) \ge 2^j q$, a contradiction. Full proofs are in the
+technical report, and all lemmas are additionally machine-checked on
+$\sim$$3{,}000$ randomized harmonic instances.
+\end{proof}
+
+\begin{theorem}
+\label{thm:approx}
+Under the granularity assumption $d_i \le t_0/4$, \textsc{Harmonic-Greedy}
+(analysis variant, $\rho^\star = 1/4$) returns a feasible schedule of cost
+at most $8 \cdot \mathrm{OPT}$.
+\end{theorem}
+
+\begin{corollary}[candidate-argmin anchor]
+\label{cor:anchor}
+The rounded cost, as a function of the anchor phase
+$\theta \in [0,1)$ ($t_0 = \tmin 2^{-\theta}$), is piecewise strictly
+decreasing with minima exactly at the folded candidates; hence the
+candidate-argmin anchor satisfies
+$\min_{\mathrm{cand}} C \le \mathbb{E}_\theta[C] = (1/\ln 2)\sum_i a_i T_i$,
+improving Theorem~\ref{thm:approx} deterministically to
+$4/\ln 2 \approx 5.77$.
+\end{corollary}
+
+\begin{theorem}[unconditional]
+\label{thm:uncond}
+Without any granularity assumption, scaling the relaxation solution by
+$s = 6$ (which simultaneously enforces the density budget and, via
+Lemma~\ref{lem:longsp}, the long-SP margin $t_0 > 3\dmax$) yields a
+$12$-approximation, and $6/\ln 2 \approx 8.66$ with the candidate-argmin
+anchor. The constant $6$ is optimal for this accounting.
+\end{theorem}
+
+\begin{proposition}[peak AoI]
+\label{prop:peak}
+All of the above holds verbatim for weighted peak AoI: by
+Proposition~\ref{prop:renewal} the objective is again linear in $T$ with
+coefficients $a^{\mathrm{peak}}_i = w_i/p_i$.
+\end{proposition}
+
+For $N = 2$ the problem admits an \emph{exact} solution, with a
+structural twist:
+
+\begin{theorem}[exact $N{=}2$]
+\label{thm:n2}
+Feasibility forces a rational period ratio $T_2/T_1 = p/q$ with
+$T_1 \ge q(d_1 + d_2)$. For each $q$ the cost
+$J(r,q) = (a_1 + a_2 r)\max(\tmin_1, \tmin_2/r, q(d_1{+}d_2))$ is quasiconvex
+in $r = p/q$ -- strictly decreasing while the $\tmin_2/r$ term is active, then
+strictly increasing -- so its integer-numerator optimum is one of the two
+grid neighbors of the continuous minimizer, and $q$ ranges over a finite,
+explicit set; this yields an exact $O(Q)$ algorithm (verified against
+exhaustive search on $4{,}000$ instances). Notably, \emph{non-integer} ratios
+are strictly optimal on an open set of instances -- both energy floors can
+bind only at a fractional ratio -- so the harmonic restriction has a real
+price already at $N = 2$, precisely the rounding loss our analysis charges
+for. Full proof: appendix of the technical report.
+\end{theorem}
+
+\ifdefined\TECHREPORT\else
+Full proofs of all results appear in the appendix of the technical-report
+version.
+\fi
+
+\section{Implementation in ns-3}
+\label{sec:implementation}
+
+We implement the full system in ns-3.\footnote{Code, data, and a
+reproduction guide are available at
+\url{https://github.com/Haoyu2/age-optimal-twt} -- an ns-3 \texttt{contrib}
+module plus the \texttt{src/wifi} mechanism patch, with the raw sweep results,
+released to support artifact evaluation.} It comprises a
+\TwtPSM{}
+realizing individual implicit TWT as a subclass of the 802.11 power-save
+architecture, and the scheduler as a pluggable policy module. Three
+mechanism elements proved essential, each corresponding to a measured
+failure mode:
+(i) \emph{deferral, not wake-on-traffic}: channel access requested outside
+an SP must not wake the radio -- queued frames contend automatically at the
+next SP start;
+(ii) \emph{SP-boundary queue gating}: without it, pending retransmissions
+keep the station awake until the fading flips (we measured a retry storm of
+$1.5\times10^5$ transmissions), erasing the energy savings. We gate by
+\emph{freezing} rather than dropping: at SP end we mark the station's
+per-access-category EDCA queues blocked through ns-3's existing power-save
+block-reason mechanism (the same hook the standard PS manager uses), and
+release it at the next SP start. Blocked frames are not dequeued for
+transmission, so their sequence numbers, retry counts, and Block-Ack state
+are preserved untouched; the deferred updates simply ride the next SP. This
+restores the exact $k$-attempts-per-SP structure the model assumes and keeps
+the PHY in sleep between SPs;
+(iii) \emph{TSF-anchored offsets}: per-station offsets must live on a common
+absolute time grid or the computed packing is meaningless.
+We further document protocol findings on TWT deployment: beacon-loss
+monitoring disassociates dozing stations; downlink frames (including
+ADDBA responses) buffered for a dozing station deadlock the uplink through
+asymmetric Block Ack state; and doze announcements are best-effort by
+nature -- a PM indication cannot be acknowledged over a channel the AP
+cannot hear, which is precisely why TWT is schedule-based.
+
+\section{Evaluation}
+\label{sec:evaluation}
+
+\textbf{Setup.} 802.11ax, 2.4 GHz, 20 MHz, HeMcs3; 10--50 stations with
+heterogeneous weights, duty budgets and per-SP fading; one status update
+per wake interval per station; exact event-driven AoI integration at the AP;
+$300$\,s runs, 10 seeds, $95\%$ confidence intervals.
+
+\textbf{Baselines.} We compare \textsc{Harmonic-Greedy} against two
+baselines. \emph{Equal-interval} gives all stations a single common period
+(the naive TWT schedule). \emph{Energy-greedy} is a strong heuristic in the
+spirit of energy-efficiency-first TWT schedulers such as
+TASPER~\cite{tasper25}: it gives each station its shortest budget-feasible
+period $\max(\tmin_i, \dmax)$, uniformly stretches to feasibility if
+overbooked, and reuses our rounding, packing and safeguard. It is
+period-\emph{diverse} but AoI-weight-\emph{unaware}, so it isolates the value
+of our weighted period assignment: any margin of \textsc{Harmonic-Greedy}
+over Energy-greedy is attributable to that step alone. The two baselines let
+us separate two questions -- does period diversity help (Energy-greedy
+vs.\ Equal-interval), and does AoI-weighting help beyond it
+(\textsc{Harmonic-Greedy} vs.\ Energy-greedy).
+
+\textbf{Energy--freshness frontier.} Figure~\ref{fig:pareto} sweeps the
+duty-cycle budgets ($8\times$ weight skew): the schedulers trace the
+AoI--energy trade-off, with \textsc{Harmonic-Greedy} dominating in the
+energy-constrained region where ideal-period spread exceeds an octave and
+coinciding with the baseline where the safeguard detects collapse.
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/pareto.pdf}{%
+\includegraphics[width=0.95\linewidth]{figures/pareto.pdf}}{%
+\fbox{\parbox{0.9\linewidth}{\centering\vspace{2em}
+Figure placeholder: AoI--energy Pareto frontier
+(\texttt{scripts/make\_pareto.py})\vspace{2em}}}}
+\caption{Weighted mean AoI vs.\ mean duty cycle across energy budgets
+($8\times$ weight skew, 10 stations, 5 seeds).}
+\label{fig:pareto}
+\end{figure}
+
+\textbf{Model validation.} (Fig.~\ref{fig:validation},
+Table~\ref{tab:validation}) Across the loss grid
+$e \in \{0, 0.1, \dots, 0.6\}$, measured AoI tracks
+$\delta + T(1/p - 1/2)$ with mean error ${\sim}1\%$ ($0.003\%$ at $p=1$ on
+every seed; worst single seed $4.4\%$ at $p{=}0.4$, the geometric-tail
+variance of a $300$\,s run); renewal components $\mathbb{E}[G]$ and
+$\mathbb{E}[G^2]/2\mathbb{E}[G]$ are within $1\%$ of $T/p$ and
+$T(1/p - 1/2)$.
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/validation.pdf}{%
+\includegraphics[width=0.92\linewidth]{figures/validation.pdf}}{}
+\caption{Single-station validation: measured time-average AoI (3 seeds,
+$95\%$ CI) vs the renewal model, across per-SP loss probabilities
+($T{=}100$\,ms, $d{=}8$\,ms).}
+\label{fig:validation}
+\end{figure}
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/regimes.pdf}{%
+\includegraphics[width=0.92\linewidth]{figures/regimes.pdf}}{}
+\caption{Weighted mean AoI by regime (10 seeds, $95\%$ CI). With
+heterogeneous budgets (left) the strong energy-greedy baseline already
+matches \textsc{Harmonic-Greedy}; with uniform budgets and binding density
+(right) it collapses to equal-interval and only AoI-weighting wins.}
+\label{fig:regimes}
+\end{figure}
+
+\textbf{Period diversity vs.\ AoI-weighting.} (Fig.~\ref{fig:regimes},
+Table~\ref{tab:regimes}) The two effects separate cleanly by regime.
+\emph{When budgets are heterogeneous}, the per-station energy floors
+$\tmin_i = d_i/\rho_i$ already pin the periods, so ``minimize every period
+then pack'' is near-optimal: Energy-greedy captures essentially the whole
+gain over equal-interval and \textsc{Harmonic-Greedy} only matches it
+(het-budget skew: $\ResSkewHarmonic$ vs $\ResSkewEnergy$\,ms, both vs
+$\ResSkewEqual$ for equal-interval; fading+skew similar). We report this
+plainly -- period diversity, not AoI-weighting, drives those gains, and the
+LB column confirms both schedulers already sit near the optimum there.
+\emph{When budgets are uniform}, Energy-greedy collapses to equal-interval
+(identical floors give identical periods), and only the AoI-weighted
+assignment redistributes the binding schedule density toward the stations
+that matter: under uniform budgets with binding density,
+\textsc{Harmonic-Greedy} wins $\ResUbindGainE\%$ with weight skew
+($\ResUbindHarmonic$ vs $\ResUbindEnergy$\,ms) and $\ResUbindfadeGainE\%$
+with skew plus fading -- the latter via the channel-aware coefficient
+$a_i \propto 1/p_i$. This is the regime that isolates the paper's
+contribution. Weighted \emph{peak} AoI tracks the same pattern
+(Proposition~\ref{prop:peak}); duty cycles equal $d_i/T_i$ to four decimals
+and SPs never overlap in all runs.
+
+\textbf{Near-optimality.} The LB column of Table~\ref{tab:regimes} is the
+relaxation optimum -- a lower bound on \emph{any} feasible schedule.
+\textsc{Harmonic-Greedy} is the only scheduler that stays close to LB in
+\emph{every} regime; Energy-greedy is near-LB when energy floors pin the
+periods but drifts away once the binding density must be redistributed by
+weight or channel rather than by budget. The residual gap to LB is the price
+of harmonic rounding and contiguous (non-preemptive) packing, which
+Proposition~\ref{prop:ce} shows is unavoidable in general.
+
+\textbf{Scaling and decomposition.} (Fig.~\ref{fig:scaling},
+Fig.~\ref{fig:mixedmcs}) The pipeline runs cleanly to $N = 50$ stations
+(exact duty cycles, zero SP overlap, predictions within $2\%$).
+Heterogeneous SP sizes -- alternating HeMcs0/HeMcs7, $700$-byte updates,
+airtimes differing ${\sim}3\times$ -- give the cleanest decomposition of the
+two effects at scale (3 seeds, CIs within $0.1$\,ms). At $N{=}50$:
+equal-interval $38.5$\,ms; Energy-greedy $29.5$\,ms (a $23\%$ gain from
+period diversity alone, as fast stations need not wait for slow ones); and
+\textsc{Harmonic-Greedy} $24.6$\,ms (a further $17\%$ from AoI-weighting, for
+$36\%$ over equal-interval). Both ingredients contribute and
+\textsc{Harmonic-Greedy} beats the strong baseline outright here, because
+diverse airtimes create both period diversity \emph{and} a binding density
+that AoI-weighting can exploit. ($N{=}20$ shows the same split:
+$16.8 \to 13.3 \to 11.2$\,ms.)
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/mixedmcs.pdf}{%
+\includegraphics[width=0.92\linewidth]{figures/mixedmcs.pdf}}{}
+\caption{Heterogeneous modulation rates (HeMcs0/HeMcs7 alternating,
+$700$-byte updates, $8\times$ weight skew, 3 seeds): the gain decomposes into
+period diversity (energy-greedy over equal-interval) and AoI-weighting
+(\textsc{Harmonic-Greedy} over energy-greedy); $36\%$ total at $N{=}50$.}
+\label{fig:mixedmcs}
+\end{figure}
+
+\textbf{Certified vs.\ practical variant.} \textsc{Harmonic-Greedy} has two
+configurations that share the relaxation, anchor rule, and safeguard but
+differ in the packing stage (Sec.~\ref{sec:algorithm}). The
+\emph{certified} variant (dyadic reservations, $\rho^\star{=}1/4$) is the
+one Theorems~\ref{thm:approx}--\ref{thm:uncond} bound; the \emph{practical}
+variant ($\rho^\star{=}0.9$, first-fit of true SP durations) is the one that
+produces the gains above. The conservative $\rho^\star{=}1/4$ is forced by
+the two factor-of-two losses the worst-case packing analysis must absorb in
+series: rounding each SP duration up to a dyadic reservation can double the
+schedule density, and the packing threshold (Lemma~\ref{lem:packing}) admits
+a request only when $d' \le t_0(1-U)$, which the count invariant satisfies
+for $U \le 1/2$; starting from $\rho^\star{=}1/4$ leaves exactly the headroom
+for both. The practical variant instead packs the true SP durations
+greedily, so neither loss applies and density $0.9$ is feasible -- but it has
+no worst-case certificate. The two are thus not interchangeable: we report
+the practical variant's numbers throughout, and use the certified variant
+only to establish that the same algorithmic template admits a guarantee. The LB
+column quantifies the cost of this conservatism -- both variants sit between
+LB and the baseline, the practical one near LB. Tightening the analyzed
+budget toward $\rho^\star{=}0.9$ is open (Sec.~\ref{sec:conclusion}).
+
+\begin{figure}[t]
+\centering
+\IfFileExists{figures/scaling.pdf}{%
+\includegraphics[width=0.92\linewidth]{figures/scaling.pdf}}{}
+\caption{Scaling with the number of stations ($8\times$ weight skew,
+heterogeneous budgets, 3 seeds): all three schedulers track closely once the
+schedule is capacity-bound (energy floors pin the periods).}
+\label{fig:scaling}
+\end{figure}
+
+\begin{table}[t]
+\centering
+\caption{Single-station model validation (summary).}
+\label{tab:validation}
+\begin{tabular}{lcc}
+\toprule
+Regime & Predicted & Error \\
+\midrule
+$p\approx 1$, $T{=}100/8$\,ms & $\delta + T/2$ & $0.016\%$ \\
+$p\approx 1$, $T{=}50/4$\,ms & $\delta + T/2$ & $0.065\%$ \\
+block fading $p{=}0.8/0.6/0.4$ & $\delta + T(1/p - 1/2)$ & $\le 1.2\%$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[t]
+\centering
+\caption{Weighted mean AoI (ms; mean $\pm$ 95\% CI over 10 seeds),
+10 stations, 300\,s. Equal = equal-interval, EG = energy-greedy (strong
+baseline), \textsc{H-G} = ours, LB = relaxation lower bound (unachievable).
+Top: heterogeneous budgets -- EG already near-optimal, \textsc{H-G} matches.
+Bottom: uniform budgets, binding density -- EG collapses to Equal, only
+\textsc{H-G} (AoI-weighting) wins.}
+\label{tab:regimes}
+\begin{tabular}{lcccc}
+\toprule
+Regime & Equal & EG & \textsc{H-G} & LB \\
+\midrule
+het.\ budget, skew & \ResSkewEqual & \ResSkewEnergy & \ResSkewHarmonic &
+  \ResSkewLB \\
+het.\ budget, fade+skew & \ResFadingSkewEqual & \ResFadingSkewEnergy &
+  \ResFadingSkewHarmonic & \ResFadingSkewLB \\
+\midrule
+unif.\ budget, skew & \ResUbindEqual & \ResUbindEnergy &
+  \textbf{\ResUbindHarmonic} & \ResUbindLB \\
+unif.\ budget, fade+skew & \ResUbindfadeEqual & \ResUbindfadeEnergy &
+  \textbf{\ResUbindfadeHarmonic} & \ResUbindfadeLB \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+TWT turns freshness-vs-energy into a schedule design problem; we gave the
+first formulation with AoI as the objective, the first approximation
+guarantees, an exact solution for $N{=}2$, and a validated open
+implementation. Open directions: index policies for stochastic arrivals
+(asymptotic optimality), exact solutions beyond $N{=}2$, AP-side
+schedule-aware delivery for downlink AoI, and closing the gap between the
+analyzed and implemented packing budgets. The latter is the most concrete:
+the certified $\rho^\star{=}1/4$ is conservative only because the worst-case
+packing analysis must absorb two compounding factor-of-two losses in series
+-- dyadic duration rounding can double the density, and the non-preemptive
+packing threshold (a consequence of the same density-1 infeasibility of
+Proposition~\ref{prop:ce}) admits requests only up to half the window. The
+practical $\rho^\star{=}0.9$ greedy never triggers either worst case; a
+tighter analysis -- e.g.\ an amortized rather than per-request packing
+argument -- would likely certify a density target close to it and is, we
+believe, the single highest-leverage next step.

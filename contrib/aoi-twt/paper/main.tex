@@ -280,8 +280,9 @@ in Section~\ref{sec:conclusion} but do not treat here.
 \section{Single-Station Structure}
 \label{sec:single}
 
-Successful SPs form a renewal process; standard renewal-reward computation
-gives:
+Successful SPs form a renewal process; the standard renewal-reward AoI
+argument~\cite{kaul12,yates21} then gives the following, which is the linchpin
+that turns TWT scheduling into a linear objective (Section~\ref{sec:problem}).
 
 \begin{proposition}[TWT AoI]
 \label{prop:renewal}
@@ -292,6 +293,19 @@ delivery delay $\delta$,
 \bar A^{\mathrm{peak}} = \delta + \frac{T}{p}.
 \]
 \end{proposition}
+
+\begin{proof}[Sketch]
+Let $G$ be the number of wake intervals between successive successful SPs.
+Since each SP succeeds independently with probability $p$, $G$ is geometric on
+$\{1,2,\dots\}$, so $\mathbb{E}[G] = 1/p$ and $\mathbb{E}[G^2] = (2-p)/p^2$.
+The inter-delivery time is $X = GT$. After a successful delivery the AoI drops
+to the in-SP delay (mean $\delta$) and then grows linearly until the next
+success, so each renewal cycle contributes area $\delta X + X^2/2$. Dividing
+expected area by expected cycle length gives
+$\bar A = \delta + \mathbb{E}[X^2]/(2\mathbb{E}[X]) = \delta + T(1/p - 1/2)$,
+and the per-cycle peak $\delta + X$ averages to
+$\bar A^{\mathrm{peak}} = \delta + \mathbb{E}[X] = \delta + T/p$.
+\end{proof}
 
 When the channel is per-attempt i.i.d. with success probability $q$ and the
 SP holds $k$ attempts, $p = 1-(1-q)^k$ and $d = k s + c_w$ with $s$ the
